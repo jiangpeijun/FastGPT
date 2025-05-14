@@ -1,9 +1,11 @@
 import {
+  datasetQuoteValueDesc,
+  datasetSelectValueDesc,
   FlowNodeInputTypeEnum,
   FlowNodeOutputTypeEnum,
   FlowNodeTypeEnum
 } from '../../node/constant';
-import { FlowNodeTemplateType } from '../../type/node';
+import { type FlowNodeTemplateType } from '../../type/node';
 import {
   WorkflowIOValueTypeEnum,
   NodeInputKeyEnum,
@@ -13,9 +15,9 @@ import {
 import { Input_Template_UserChatInput } from '../input';
 import { DatasetSearchModeEnum } from '../../../dataset/constants';
 import { getHandleConfig } from '../utils';
+import { i18nT } from '../../../../../web/i18n/utils';
 
-export const Dataset_SEARCH_DESC =
-  '调用“语义检索”和“全文检索”能力，从“知识库”中查找可能与问题相关的参考内容';
+export const Dataset_SEARCH_DESC = i18nT('workflow:template.dataset_search_intro');
 
 export const DatasetSearchModule: FlowNodeTemplateType = {
   id: FlowNodeTypeEnum.datasetSearchNode,
@@ -24,19 +26,21 @@ export const DatasetSearchModule: FlowNodeTemplateType = {
   sourceHandle: getHandleConfig(true, true, true, true),
   targetHandle: getHandleConfig(true, true, true, true),
   avatar: 'core/workflow/template/datasetSearch',
-  name: '知识库搜索',
+  name: i18nT('workflow:template.dataset_search'),
   intro: Dataset_SEARCH_DESC,
   showStatus: true,
   isTool: true,
-  version: '481',
+  courseUrl: '/docs/guide/dashboard/workflow/dataset_search/',
+  version: '4.9.2',
   inputs: [
     {
       key: NodeInputKeyEnum.datasetSelectList,
       renderTypeList: [FlowNodeInputTypeEnum.selectDataset, FlowNodeInputTypeEnum.reference],
-      label: 'core.module.input.label.Select dataset',
+      label: i18nT('common:core.module.input.label.Select dataset'),
       value: [],
       valueType: WorkflowIOValueTypeEnum.selectDataset,
-      required: true
+      required: true,
+      valueDesc: datasetSelectValueDesc
     },
     {
       key: NodeInputKeyEnum.datasetSimilarity,
@@ -50,7 +54,7 @@ export const DatasetSearchModule: FlowNodeTemplateType = {
       key: NodeInputKeyEnum.datasetMaxTokens,
       renderTypeList: [FlowNodeInputTypeEnum.hidden],
       label: '',
-      value: 1500,
+      value: 5000,
       valueType: WorkflowIOValueTypeEnum.number
     },
     {
@@ -61,12 +65,34 @@ export const DatasetSearchModule: FlowNodeTemplateType = {
       value: DatasetSearchModeEnum.embedding
     },
     {
+      key: NodeInputKeyEnum.datasetSearchEmbeddingWeight,
+      renderTypeList: [FlowNodeInputTypeEnum.hidden],
+      label: '',
+      valueType: WorkflowIOValueTypeEnum.number,
+      value: 0.5
+    },
+    // Rerank
+    {
       key: NodeInputKeyEnum.datasetSearchUsingReRank,
       renderTypeList: [FlowNodeInputTypeEnum.hidden],
       label: '',
       valueType: WorkflowIOValueTypeEnum.boolean,
       value: false
     },
+    {
+      key: NodeInputKeyEnum.datasetSearchRerankModel,
+      renderTypeList: [FlowNodeInputTypeEnum.hidden],
+      label: '',
+      valueType: WorkflowIOValueTypeEnum.string
+    },
+    {
+      key: NodeInputKeyEnum.datasetSearchRerankWeight,
+      renderTypeList: [FlowNodeInputTypeEnum.hidden],
+      label: '',
+      valueType: WorkflowIOValueTypeEnum.number,
+      value: 0.5
+    },
+    // Query Extension
     {
       key: NodeInputKeyEnum.datasetSearchUsingExtensionQuery,
       renderTypeList: [FlowNodeInputTypeEnum.hidden],
@@ -87,19 +113,37 @@ export const DatasetSearchModule: FlowNodeTemplateType = {
       valueType: WorkflowIOValueTypeEnum.string,
       value: ''
     },
+
+    {
+      key: NodeInputKeyEnum.authTmbId,
+      renderTypeList: [FlowNodeInputTypeEnum.hidden],
+      label: '',
+      valueType: WorkflowIOValueTypeEnum.boolean,
+      value: false
+    },
     {
       ...Input_Template_UserChatInput,
-      toolDescription: '需要检索的内容'
+      toolDescription: i18nT('workflow:content_to_search')
+    },
+    {
+      key: NodeInputKeyEnum.collectionFilterMatch,
+      renderTypeList: [FlowNodeInputTypeEnum.textarea, FlowNodeInputTypeEnum.reference],
+      label: i18nT('workflow:collection_metadata_filter'),
+
+      valueType: WorkflowIOValueTypeEnum.string,
+      isPro: true,
+      description: i18nT('workflow:filter_description')
     }
   ],
   outputs: [
     {
       id: NodeOutputKeyEnum.datasetQuoteQA,
       key: NodeOutputKeyEnum.datasetQuoteQA,
-      label: 'core.module.Dataset quote.label',
-      description: '特殊数组格式，搜索结果为空时，返回空数组。',
+      label: i18nT('common:core.module.Dataset quote.label'),
+      description: i18nT('workflow:special_array_format'),
       type: FlowNodeOutputTypeEnum.static,
-      valueType: WorkflowIOValueTypeEnum.datasetQuote
+      valueType: WorkflowIOValueTypeEnum.datasetQuote,
+      valueDesc: datasetQuoteValueDesc
     }
   ]
 };

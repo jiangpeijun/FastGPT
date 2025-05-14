@@ -1,19 +1,19 @@
-import { NodeInputKeyEnum, NodeOutputKeyEnum } from '@fastgpt/global/core/workflow/constants';
+import type { NodeInputKeyEnum } from '@fastgpt/global/core/workflow/constants';
+import { NodeOutputKeyEnum } from '@fastgpt/global/core/workflow/constants';
 import { DispatchNodeResponseKeyEnum } from '@fastgpt/global/core/workflow/runtime/constants';
-import { DispatchNodeResultType } from '@fastgpt/global/core/workflow/runtime/type';
+import { type DispatchNodeResultType } from '@fastgpt/global/core/workflow/runtime/type';
 import {
   IfElseResultEnum,
   VariableConditionEnum
 } from '@fastgpt/global/core/workflow/template/system/ifElse/constant';
 import {
-  ConditionListItemType,
-  IfElseConditionType,
-  IfElseListItemType
+  type ConditionListItemType,
+  type IfElseConditionType,
+  type IfElseListItemType
 } from '@fastgpt/global/core/workflow/template/system/ifElse/type';
-import { ModuleDispatchProps } from '@fastgpt/global/core/workflow/runtime/type';
+import { type ModuleDispatchProps } from '@fastgpt/global/core/workflow/runtime/type';
 import { getElseIFLabel, getHandleId } from '@fastgpt/global/core/workflow/utils';
 import { getReferenceVariableValue } from '@fastgpt/global/core/workflow/runtime/utils';
-import { replaceRegChars } from '@fastgpt/global/common/string/tools';
 
 type Props = ModuleDispatchProps<{
   [NodeInputKeyEnum.condition]: IfElseConditionType;
@@ -54,8 +54,8 @@ function checkCondition(condition: VariableConditionEnum, inputValue: any, value
     [VariableConditionEnum.isEmpty]: () => isEmpty(inputValue),
     [VariableConditionEnum.isNotEmpty]: () => !isEmpty(inputValue),
 
-    [VariableConditionEnum.equalTo]: () => String(inputValue) === value,
-    [VariableConditionEnum.notEqual]: () => String(inputValue) !== value,
+    [VariableConditionEnum.equalTo]: () => String(inputValue).trim() === value.trim(),
+    [VariableConditionEnum.notEqual]: () => String(inputValue).trim() !== value.trim(),
 
     // number
     [VariableConditionEnum.greaterThan]: () => Number(inputValue) > Number(value),
@@ -68,8 +68,8 @@ function checkCondition(condition: VariableConditionEnum, inputValue: any, value
     [VariableConditionEnum.notInclude]: () => !isInclude(inputValue, value),
 
     // string
-    [VariableConditionEnum.startWith]: () => inputValue?.startsWith(value),
-    [VariableConditionEnum.endWith]: () => inputValue?.endsWith(value),
+    [VariableConditionEnum.startWith]: () => inputValue?.trim()?.startsWith(value),
+    [VariableConditionEnum.endWith]: () => inputValue?.trim()?.endsWith(value),
     [VariableConditionEnum.reg]: () => {
       if (typeof inputValue !== 'string' || !value) return false;
       if (value.startsWith('/')) {
@@ -80,7 +80,7 @@ function checkCondition(condition: VariableConditionEnum, inputValue: any, value
       }
 
       const reg = new RegExp(value, 'g');
-      const result = reg.test(inputValue);
+      const result = reg.test(inputValue.trim());
 
       return result;
     },

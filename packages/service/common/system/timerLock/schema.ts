@@ -1,7 +1,6 @@
-import { connectionMongo, getMongoModel, type Model } from '../../mongo';
-import { timerIdMap } from './constants';
-const { Schema, model, models } = connectionMongo;
-import { TimerLockSchemaType } from './type.d';
+import { connectionMongo, getMongoModel } from '../../mongo';
+const { Schema } = connectionMongo;
+import { type TimerLockSchemaType } from './type.d';
 
 export const collectionName = 'systemtimerlocks';
 
@@ -9,8 +8,7 @@ const TimerLockSchema = new Schema({
   timerId: {
     type: String,
     required: true,
-    unique: true,
-    enum: Object.keys(timerIdMap)
+    unique: true
   },
   expiredTime: {
     type: Date,

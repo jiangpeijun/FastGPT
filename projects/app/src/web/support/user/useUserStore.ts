@@ -1,23 +1,31 @@
-import { create } from 'zustand';
-import { devtools, persist } from 'zustand/middleware';
-import { immer } from 'zustand/middleware/immer';
+import { create, devtools, persist, immer } from '@fastgpt/web/common/zustand';
+
 import type { UserUpdateParams } from '@/types/user';
-import type { UserType } from '@fastgpt/global/support/user/type.d';
+import { useSystemStore } from '@/web/common/system/useSystemStore';
 import { getTokenLogin, putUserInfo } from '@/web/support/user/api';
-import { FeTeamPlanStatusType } from '@fastgpt/global/support/wallet/sub/type';
+import type { OrgType } from '@fastgpt/global/support/user/team/org/type';
+import type { UserType } from '@fastgpt/global/support/user/type.d';
+import type { FeTeamPlanStatusType } from '@fastgpt/global/support/wallet/sub/type';
 import { getTeamPlanStatus } from './team/api';
+import { getGroupList } from './team/group/api';
 
 type State = {
   systemMsgReadId: string;
   setSysMsgReadId: (id: string) => void;
 
+  isUpdateNotification: boolean;
+  setIsUpdateNotification: (val: boolean) => void;
+
   userInfo: UserType | null;
+  isTeamAdmin: boolean;
   initUserInfo: () => Promise<UserType>;
   setUserInfo: (user: UserType | null) => void;
   updateUserInfo: (user: UserUpdateParams) => Promise<void>;
 
   teamPlanStatus: FeTeamPlanStatusType | null;
   initTeamPlanStatus: () => Promise<any>;
+
+  teamOrgs: OrgType[];
 };
 
 export const useUserStore = create<State>()(
@@ -31,7 +39,15 @@ export const useUserStore = create<State>()(
           });
         },
 
+        isUpdateNotification: true,
+        setIsUpdateNotification(val: boolean) {
+          set((state) => {
+            state.isUpdateNotification = val;
+          });
+        },
+
         userInfo: null,
+        isTeamAdmin: false,
         async initUserInfo() {
           get().initTeamPlanStatus();
 
@@ -49,6 +65,7 @@ export const useUserStore = create<State>()(
         setUserInfo(user: UserType | null) {
           set((state) => {
             state.userInfo = user ? user : null;
+            state.isTeamAdmin = !!user?.team?.permission?.hasManagePer;
           });
         },
         async updateUserInfo(user: UserUpdateParams) {
@@ -71,19 +88,22 @@ export const useUserStore = create<State>()(
         },
         // team
         teamPlanStatus: null,
-        initTeamPlanStatus() {
+        async initTeamPlanStatus() {
           return getTeamPlanStatus().then((res) => {
             set((state) => {
               state.teamPlanStatus = res;
             });
             return res;
           });
-        }
+        },
+        teamMemberGroups: [],
+        teamOrgs: []
       })),
       {
         name: 'userStore',
         partialize: (state) => ({
-          systemMsgReadId: state.systemMsgReadId
+          systemMsgReadId: state.systemMsgReadId,
+          isUpdateNotification: state.isUpdateNotification
         })
       }
     )

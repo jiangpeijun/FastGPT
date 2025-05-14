@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { ModalBody, useTheme, ModalFooter, Button, Box, Card, Flex, Grid } from '@chakra-ui/react';
 import { useTranslation } from 'next-i18next';
 import Avatar from '@fastgpt/web/components/common/Avatar';
@@ -6,14 +6,14 @@ import MyIcon from '@fastgpt/web/components/common/Icon';
 import { DatasetTypeEnum } from '@fastgpt/global/core/dataset/constants';
 import DatasetSelectModal, { useDatasetSelect } from '@/components/core/dataset/SelectModal';
 import dynamic from 'next/dynamic';
-import { AdminFbkType } from '@fastgpt/global/core/chat/type.d';
+import { type AdminFbkType } from '@fastgpt/global/core/chat/type.d';
 import SelectCollections from '@/web/core/dataset/components/SelectCollections';
 import EmptyTip from '@fastgpt/web/components/common/EmptyTip';
 
-const InputDataModal = dynamic(() => import('@/pages/dataset/detail/components/InputDataModal'));
+const InputDataModal = dynamic(() => import('@/pageComponents/dataset/detail/InputDataModal'));
 
 export type AdminMarkType = {
-  dataId?: string;
+  feedbackDataId?: string;
   datasetId?: string;
   collectionId?: string;
   q: string;
@@ -76,10 +76,8 @@ const SelectMarkCollection = ({
                       }}
                     >
                       <Flex alignItems={'center'} h={'38px'}>
-                        <Avatar src={item.avatar} w={['24px', '28px', '32px']}></Avatar>
-                        <Box ml={3} fontWeight={'bold'} fontSize={['md', 'lg']}>
-                          {item.name}
-                        </Box>
+                        <Avatar src={item.avatar} w={'2rem'} borderRadius={'sm'}></Avatar>
+                        <Box ml={3}>{item.name}</Box>
                       </Flex>
                       <Flex justifyContent={'flex-end'} alignItems={'center'} fontSize={'sm'}>
                         <MyIcon mr={1} name="kbTest" w={'12px'} />
@@ -90,7 +88,7 @@ const SelectMarkCollection = ({
                 })()
               )}
             </Grid>
-            {datasets.length === 0 && <EmptyTip text={'这个目录已经没东西可选了~'}></EmptyTip>}
+            {datasets.length === 0 && <EmptyTip text={t('chat:empty_directory')}></EmptyTip>}
           </ModalBody>
         </DatasetSelectModal>
       )}
@@ -120,7 +118,7 @@ const SelectMarkCollection = ({
                   });
                 }}
               >
-                {t('common:common.Last Step')}
+                {t('common:last_step')}
               </Button>
             </ModalFooter>
           }
@@ -137,7 +135,7 @@ const SelectMarkCollection = ({
             });
           }}
           collectionId={adminMarkData.collectionId}
-          dataId={adminMarkData.dataId}
+          dataId={adminMarkData.feedbackDataId}
           defaultValue={{
             q: adminMarkData.q,
             a: adminMarkData.a
@@ -153,7 +151,7 @@ const SelectMarkCollection = ({
             }
 
             onSuccess({
-              dataId: data.dataId,
+              feedbackDataId: data.dataId,
               datasetId: adminMarkData.datasetId,
               collectionId: adminMarkData.collectionId,
               q: data.q,

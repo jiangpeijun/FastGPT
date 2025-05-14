@@ -1,4 +1,4 @@
-const { i18n } = require('./next-i18next.config');
+const { i18n } = require('./next-i18next.config.js');
 const path = require('path');
 const fs = require('fs');
 
@@ -6,6 +6,7 @@ const isDev = process.env.NODE_ENV === 'development';
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  basePath: process.env.NEXT_PUBLIC_BASE_URL,
   i18n,
   output: 'standalone',
   reactStrictMode: isDev ? false : true,
@@ -29,10 +30,6 @@ const nextConfig = {
           test: /\.svg$/i,
           issuer: /\.[jt]sx?$/,
           use: ['@svgr/webpack']
-        },
-        {
-          test: /\.node$/,
-          use: [{ loader: 'nextjs-node-loader' }]
         }
       ]),
       exprContextCritical: false,
@@ -44,8 +41,7 @@ const nextConfig = {
     }
 
     if (isServer) {
-      // config.externals.push('@zilliz/milvus2-sdk-node');
-
+      config.externals.push('@node-rs/jieba');
       if (nextRuntime === 'nodejs') {
         const oldEntry = config.entry;
         config = {
@@ -80,11 +76,19 @@ const nextConfig = {
 
     return config;
   },
-  transpilePackages: ['@fastgpt/*', 'ahooks'],
+  // 需要转译的包
+  transpilePackages: ['@modelcontextprotocol/sdk', 'ahooks'],
   experimental: {
     // 优化 Server Components 的构建和运行，避免不必要的客户端打包。
-    serverComponentsExternalPackages: ['mongoose', 'pg', '@node-rs/jieba', 'duck-duck-scrape'],
-    outputFileTracingRoot: path.join(__dirname, '../../')
+    serverComponentsExternalPackages: [
+      'mongoose',
+      'pg',
+      'bullmq',
+      '@zilliz/milvus2-sdk-node',
+      "tiktoken",
+    ],
+    outputFileTracingRoot: path.join(__dirname, '../../'),
+    instrumentationHook: true
   }
 };
 
@@ -100,22 +104,6 @@ function getWorkerConfig() {
       .isDirectory();
   });
 
-  /* 
-    {
-      'worker/htmlStr2Md': path.resolve(
-                process.cwd(),
-                '../../packages/service/worker/htmlStr2Md/index.ts'
-              ),
-              'worker/countGptMessagesTokens': path.resolve(
-                process.cwd(),
-                '../../packages/service/worker/countGptMessagesTokens/index.ts'
-              ),
-              'worker/readFile': path.resolve(
-                process.cwd(),
-                '../../packages/service/worker/readFile/index.ts'
-              )
-    }
-  */
   const workerConfig = folderList.reduce((acc, item) => {
     acc[`worker/${item}`] = path.resolve(
       process.cwd(),

@@ -1,6 +1,6 @@
-import { LLMModelItemType } from '@fastgpt/global/core/ai/model.d';
+import { type LLMModelItemType } from '@fastgpt/global/core/ai/model.d';
 import { queryExtension } from '../../ai/functions/queryExtension';
-import { ChatItemType } from '@fastgpt/global/core/chat/type';
+import { type ChatItemType } from '@fastgpt/global/core/chat/type';
 import { hashStr } from '@fastgpt/global/common/string/tools';
 import { chatValue2RuntimePrompt } from '@fastgpt/global/core/chat/adapt';
 
@@ -72,12 +72,15 @@ Human: ${query}
     if (result.extensionQueries?.length === 0) return;
     return result;
   })();
+
+  const extensionQueries = filterSamQuery(aiExtensionResult?.extensionQueries || []);
   if (aiExtensionResult) {
-    queries = filterSamQuery(queries.concat(aiExtensionResult.extensionQueries));
+    queries = filterSamQuery(queries.concat(extensionQueries));
     rewriteQuery = queries.join('\n');
   }
 
   return {
+    extensionQueries,
     concatQueries: queries,
     rewriteQuery,
     aiExtensionResult

@@ -87,9 +87,15 @@ export class WorkerPool<Props = Record<string, any>, Response = any> {
     this.maxReservedThreads = maxReservedThreads;
   }
 
-  runTask({ data, resolve, reject }: WorkerRunTaskType<Props>) {
+  private runTask({ data, resolve, reject }: WorkerRunTaskType<Props>) {
     // Get idle worker or create a new worker
     const runningWorker = (() => {
+      // @ts-ignore
+      if (data.workerId) {
+        // @ts-ignore
+        const worker = this.workerQueue.find((item) => item.id === data.workerId);
+        if (worker) return worker;
+      }
       const worker = this.workerQueue.find((item) => item.status === 'idle');
       if (worker) return worker;
 
@@ -120,7 +126,7 @@ export class WorkerPool<Props = Record<string, any>, Response = any> {
 
   run(data: Props) {
     // watch memory
-    addLog.debug(`${this.name} worker queueLength: ${this.workerQueue.length}`);
+    // addLog.debug(`${this.name} worker queueLength: ${this.workerQueue.length}`);
 
     return new Promise<Response>((resolve, reject) => {
       /* 
@@ -157,39 +163,33 @@ export class WorkerPool<Props = Record<string, any>, Response = any> {
 
     // watch response
     worker.on('message', ({ id, type, data }: WorkerResponse<Response>) => {
-      // Run callback
-      const workerItem = this.workerQueue.find((item) => item.id === id);
-
-      if (!workerItem) {
-        addLog.warn('Invalid worker', { id, type, data });
-        return;
-      }
-
       if (type === 'success') {
-        workerItem.resolve(data);
+        item.resolve(data);
       } else if (type === 'error') {
-        workerItem.reject(data);
+        item.reject(data);
       }
 
       // Clear timeout timer and update worker status
-      clearTimeout(workerItem.timeoutId);
-      workerItem.status = 'idle';
+      clearTimeout(item.timeoutId);
+      item.status = 'idle';
     });
 
     // Worker error, terminate and delete it.（Un catch error)
     worker.on('error', (err) => {
-      addLog.warn('Worker error', { err });
+      console.log(err);
+      addLog.error('Worker error', err);
       this.deleteWorker(workerId);
     });
     worker.on('messageerror', (err) => {
-      addLog.warn('Worker error', { err });
+      console.log(err);
+      addLog.error('Worker messageerror', err);
       this.deleteWorker(workerId);
     });
 
     return item;
   }
 
-  deleteWorker(workerId: string) {
+  private deleteWorker(workerId: string) {
     const item = this.workerQueue.find((item) => item.id === workerId);
     if (item) {
       item.reject?.('error');

@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { Permission } from '@fastgpt/global/support/permission/controller';
-import { PermissionListType } from '@fastgpt/global/support/permission/type';
+import { type PermissionListType } from '@fastgpt/global/support/permission/type';
 import { PermissionList } from '@fastgpt/global/support/permission/constant';
 import MyTag from '@fastgpt/web/components/common/Tag/index';
 import { HStack } from '@chakra-ui/react';
@@ -20,9 +20,9 @@ const PermissionTag = ({
 
     const commonLabel = (() => {
       if (permission.isOwner) return t('common:permission.Owner');
-      if (permission.hasManagePer) return PermissionList['manage'].name;
-      if (permission.hasWritePer) return PermissionList['write'].name;
-      if (permission.hasReadPer) return PermissionList['read'].name;
+      if (permission.hasManagePer) return t(PermissionList['manage'].name as any);
+      if (permission.hasWritePer) return t(PermissionList['write'].name as any);
+      if (permission.hasReadPer) return t(PermissionList['read'].name as any);
 
       return;
     })();
@@ -44,8 +44,10 @@ const PermissionTag = ({
     permission.hasManagePer,
     permission.hasReadPer,
     permission.hasWritePer,
+    permission.isOwner,
     permission.value,
-    permissionList
+    permissionList,
+    t
   ]);
   return (
     <HStack>

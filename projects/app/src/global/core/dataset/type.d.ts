@@ -1,9 +1,7 @@
 import { ParentTreePathItemType } from '@fastgpt/global/common/parentFolder/type';
-import {
-  DatasetCollectionSchemaType,
-  DatasetDataSchemaType
-} from '@fastgpt/global/core/dataset/type.d';
-import { DatasetPermission } from '@fastgpt/global/support/permission/dataset/controller';
+import type { DatasetCollectionSchemaType } from '@fastgpt/global/core/dataset/type.d';
+import { DatasetDataSchemaType, DatasetTagType } from '@fastgpt/global/core/dataset/type.d';
+import type { DatasetPermission } from '@fastgpt/global/support/permission/dataset/controller';
 
 /* ================= dataset ===================== */
 
@@ -18,6 +16,9 @@ export type DatasetCollectionsListItemType = {
   updateTime: DatasetCollectionSchemaType['updateTime'];
   forbid?: DatasetCollectionSchemaType['forbid'];
   trainingType?: DatasetCollectionSchemaType['trainingType'];
+  tags?: string[];
+
+  externalFileId?: string;
 
   fileId?: string;
   rawLink?: string;
@@ -25,6 +26,7 @@ export type DatasetCollectionsListItemType = {
 
   dataAmount: number;
   trainingAmount: number;
+  hasError?: boolean;
 };
 
 /* ================= data ===================== */
@@ -35,5 +37,6 @@ export type DatasetDataListItemType = {
   q: string; // embedding content
   a: string; // bonus content
   chunkIndex?: number;
+  updated?: boolean;
   // indexes: DatasetDataSchemaType['indexes'];
 };

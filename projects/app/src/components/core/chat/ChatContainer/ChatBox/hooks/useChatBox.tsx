@@ -1,11 +1,12 @@
-import { ExportChatType } from '@/types/chat';
-import { ChatItemType } from '@fastgpt/global/core/chat/type';
+import { type ExportChatType } from '@/types/chat';
+import { type ChatItemType } from '@fastgpt/global/core/chat/type';
 import { useCallback } from 'react';
 import { htmlTemplate } from '@/web/core/chat/constants';
 import { fileDownload } from '@/web/common/file/utils';
 import { ChatItemValueTypeEnum } from '@fastgpt/global/core/chat/constants';
-
+import { useTranslation } from 'next-i18next';
 export const useChatBox = () => {
+  const { t } = useTranslation();
   const onExportChat = useCallback(
     ({ type, history }: { type: ExportChatType; history: ChatItemType[] }) => {
       const getHistoryHtml = () => {
@@ -54,7 +55,7 @@ export const useChatBox = () => {
 `;
                   } else if (item.type === ChatItemValueTypeEnum.tool) {
                     return `
-\`\`\`Toll
+\`\`\`Tool
 ${JSON.stringify(item.tools, null, 2)}
 \`\`\`
 `;
@@ -74,7 +75,7 @@ ${JSON.stringify(item.tools, null, 2)}
             fileDownload({
               text: html,
               type: 'text/html',
-              filename: '聊天记录.html'
+              filename: `${t('chat:chat_history')}.html`
             });
         },
         pdf: () => {
@@ -84,7 +85,7 @@ ${JSON.stringify(item.tools, null, 2)}
             // @ts-ignore
             html2pdf(html, {
               margin: 0,
-              filename: `聊天记录.pdf`
+              filename: `${t('chat:chat_history')}.pdf`
             });
         }
       };

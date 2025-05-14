@@ -1,6 +1,6 @@
-import { useCopyData } from '@/web/common/hooks/useCopyData';
-import { Flex, FlexProps, Image, css, useTheme } from '@chakra-ui/react';
-import { ChatSiteItemType } from '@fastgpt/global/core/chat/type';
+import { useCopyData } from '@fastgpt/web/hooks/useCopyData';
+import { Flex, type FlexProps, css, useTheme } from '@chakra-ui/react';
+import { type ChatSiteItemType } from '@fastgpt/global/core/chat/type';
 import MyTooltip from '@fastgpt/web/components/common/MyTooltip';
 import React, { useMemo } from 'react';
 import { useTranslation } from 'next-i18next';
@@ -9,6 +9,8 @@ import { formatChatValue2InputType } from '../utils';
 import { ChatRoleEnum } from '@fastgpt/global/core/chat/constants';
 import { ChatBoxContext } from '../Provider';
 import { useContextSelector } from 'use-context-selector';
+import MyImage from '@fastgpt/web/components/common/Image/MyImage';
+import { ChatRecordContext } from '@/web/core/chat/context/chatRecordContext';
 
 export type ChatControllerProps = {
   isLastChild: boolean;
@@ -23,9 +25,21 @@ export type ChatControllerProps = {
   onAddUserDislike?: () => void;
 };
 
+const controlIconStyle = {
+  w: '14px',
+  cursor: 'pointer',
+  p: '5px',
+  bg: 'white',
+  borderRight: 'base'
+};
+const controlContainerStyle = {
+  className: 'control',
+  color: 'myGray.400',
+  display: 'flex'
+};
+
 const ChatController = ({
   chat,
-  isLastChild,
   showVoiceIcon,
   onReadUserDislike,
   onCloseUserLike,
@@ -35,33 +49,20 @@ const ChatController = ({
   onAddUserDislike,
   onAddUserLike
 }: ChatControllerProps & FlexProps) => {
-  const theme = useTheme();
-  const {
-    isChatting,
-    setChatHistories,
-    audioLoading,
-    audioPlaying,
-    hasAudio,
-    playAudioByText,
-    cancelAudio,
-    audioPlayingChatId,
-    setAudioPlayingChatId
-  } = useContextSelector(ChatBoxContext, (v) => v);
-  const controlIconStyle = {
-    w: '14px',
-    cursor: 'pointer',
-    p: '5px',
-    bg: 'white',
-    borderRight: theme.borders.base
-  };
-  const controlContainerStyle = {
-    className: 'control',
-    color: 'myGray.400',
-    display: 'flex'
-  };
-
   const { t } = useTranslation();
   const { copyData } = useCopyData();
+
+  const setChatRecords = useContextSelector(ChatRecordContext, (v) => v.setChatRecords);
+
+  const isChatting = useContextSelector(ChatBoxContext, (v) => v.isChatting);
+  const audioLoading = useContextSelector(ChatBoxContext, (v) => v.audioLoading);
+  const audioPlaying = useContextSelector(ChatBoxContext, (v) => v.audioPlaying);
+  const hasAudio = useContextSelector(ChatBoxContext, (v) => v.hasAudio);
+  const playAudioByText = useContextSelector(ChatBoxContext, (v) => v.playAudioByText);
+  const cancelAudio = useContextSelector(ChatBoxContext, (v) => v.cancelAudio);
+  const audioPlayingChatId = useContextSelector(ChatBoxContext, (v) => v.audioPlayingChatId);
+  const setAudioPlayingChatId = useContextSelector(ChatBoxContext, (v) => v.setAudioPlayingChatId);
+  const chatType = useContextSelector(ChatBoxContext, (v) => v.chatType);
 
   const chatText = useMemo(() => formatChatValue2InputType(chat.value).text || '', [chat.value]);
 
@@ -70,7 +71,7 @@ const ChatController = ({
       {...controlContainerStyle}
       borderRadius={'sm'}
       overflow={'hidden'}
-      border={theme.borders.base}
+      border={'base'}
       // 最后一个子元素，没有border
       css={css({
         '& > *:last-child, & > *:last-child svg': {
@@ -79,7 +80,7 @@ const ChatController = ({
         }
       })}
     >
-      <MyTooltip label={t('common:common.Copy')}>
+      <MyTooltip label={t('common:Copy')}>
         <MyIcon
           {...controlIconStyle}
           name={'copy'}
@@ -87,7 +88,7 @@ const ChatController = ({
           onClick={() => copyData(chatText)}
         />
       </MyTooltip>
-      {!!onDelete && !isChatting && (
+      {!!onDelete && !isChatting && chatType !== 'log' && (
         <>
           {onRetry && (
             <MyTooltip label={t('common:core.chat.retry')}>
@@ -99,7 +100,7 @@ const ChatController = ({
               />
             </MyTooltip>
           )}
-          <MyTooltip label={t('common:common.Delete')}>
+          <MyTooltip label={t('common:Delete')}>
             <MyIcon
               {...controlIconStyle}
               name={'delete'}
@@ -125,18 +126,13 @@ const ChatController = ({
                     onClick={cancelAudio}
                   />
                 </MyTooltip>
-                <Image
-                  src="/icon/speaking.gif"
-                  w={'23px'}
-                  alt={''}
-                  borderRight={theme.borders.base}
-                />
+                <MyImage src="/icon/speaking.gif" w={'23px'} alt={''} borderRight={'base'} />
               </Flex>
             );
           }
           if (isPlayingChat && audioLoading) {
             return (
-              <MyTooltip label={t('common:common.Loading')}>
+              <MyTooltip label={t('common:Loading')}>
                 <MyIcon {...controlIconStyle} name={'common/loading'} />
               </MyTooltip>
             );
@@ -154,8 +150,8 @@ const ChatController = ({
                     text: chatText
                   });
 
-                  if (!setChatHistories || !response.buffer) return;
-                  setChatHistories((state) =>
+                  if (!setChatRecords || !response.buffer) return;
+                  setChatRecords((state) =>
                     state.map((item) =>
                       item.dataId === chat.dataId
                         ? {

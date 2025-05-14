@@ -1,25 +1,28 @@
+import { BucketNameEnum } from '@fastgpt/global/common/file/constants';
+import { retryFn } from '@fastgpt/global/common/system/utils';
 import {
   delFileByFileIdList,
   getGFSCollection
 } from '@fastgpt/service/common/file/gridfs/controller';
-import { mongoSessionRun } from '@fastgpt/service/common/mongo/sessionRun';
 import { addLog } from '@fastgpt/service/common/system/log';
 import {
   deleteDatasetDataVector,
   getVectorDataByTime
-} from '@fastgpt/service/common/vectorStore/controller';
+} from '@fastgpt/service/common/vectorDB/controller';
 import { MongoDatasetCollection } from '@fastgpt/service/core/dataset/collection/schema';
+import { MongoDatasetDataText } from '@fastgpt/service/core/dataset/data/dataTextSchema';
 import { MongoDatasetData } from '@fastgpt/service/core/dataset/data/schema';
 import { MongoDatasetTraining } from '@fastgpt/service/core/dataset/training/schema';
+import { addDays } from 'date-fns';
 
 /* 
   check dataset.files data. If there is no match in dataset.collections, delete it
-  可能异常情况
+  可能异常情况:
   1. 上传了文件，未成功创建集合
 */
 export async function checkInvalidDatasetFiles(start: Date, end: Date) {
   let deleteFileAmount = 0;
-  const collection = getGFSCollection('dataset');
+  const collection = getGFSCollection(BucketNameEnum.dataset);
   const where = {
     uploadDate: { $gte: start, $lte: end }
   };
@@ -46,7 +49,10 @@ export async function checkInvalidDatasetFiles(start: Date, end: Date) {
 
       // 3. if not found, delete file
       if (hasCollection === 0) {
-        await delFileByFileIdList({ bucketName: 'dataset', fileIdList: [String(file._id)] });
+        await delFileByFileIdList({
+          bucketName: BucketNameEnum.dataset,
+          fileIdList: [String(file._id)]
+        });
         console.log('delete file', file._id);
         deleteFileAmount++;
       }
@@ -58,6 +64,37 @@ export async function checkInvalidDatasetFiles(start: Date, end: Date) {
   }
   addLog.info(`Clear invalid dataset files finish, remove ${deleteFileAmount} files`);
 }
+
+/* 
+  Remove 7 days ago chat files
+*/
+export const removeExpiredChatFiles = async () => {
+  let deleteFileAmount = 0;
+  const collection = getGFSCollection(BucketNameEnum.chat);
+
+  const expireTime = Number(process.env.CHAT_FILE_EXPIRE_TIME || 7);
+  const where = {
+    uploadDate: { $lte: addDays(new Date(), -expireTime) }
+  };
+
+  // get all file _id
+  const files = await collection.find(where, { projection: { _id: 1 } }).toArray();
+
+  // Delete file one by one
+  for await (const file of files) {
+    try {
+      await delFileByFileIdList({
+        bucketName: BucketNameEnum.chat,
+        fileIdList: [String(file._id)]
+      });
+      deleteFileAmount++;
+    } catch (error) {
+      console.log(error);
+    }
+  }
+
+  addLog.info(`Remove expired chat files finish, remove ${deleteFileAmount} files`);
+};
 
 /* 
   检测无效的 Mongo 数据
@@ -95,32 +132,35 @@ export async function checkInvalidDatasetData(start: Date, end: Date) {
   for await (const item of list) {
     try {
       // 3. 查看该collection是否存在，不存在，则删除对应的数据
-      const collection = await MongoDatasetCollection.findOne({ _id: item.collectionId });
+      const collection = await MongoDatasetCollection.findOne(
+        { _id: item.collectionId },
+        '_id'
+      ).lean();
       if (!collection) {
-        await mongoSessionRun(async (session) => {
-          await MongoDatasetTraining.deleteMany(
-            {
-              teamId: item.teamId,
-              collectionId: item.collectionId
-            },
-            { session }
-          );
-          await MongoDatasetData.deleteMany(
-            {
-              teamId: item.teamId,
-              collectionId: item.collectionId
-            },
-            { session }
-          );
+        console.log('collection is not found', item);
+
+        await retryFn(async () => {
+          await MongoDatasetTraining.deleteMany({
+            teamId: item.teamId,
+            datasetId: item.datasetId,
+            collectionId: item.collectionId
+          });
+          await MongoDatasetDataText.deleteMany({
+            teamId: item.teamId,
+            datasetId: item.datasetId,
+            collectionId: item.collectionId
+          });
           await deleteDatasetDataVector({
             teamId: item.teamId,
             datasetIds: [item.datasetId],
             collectionIds: [item.collectionId]
           });
+          await MongoDatasetData.deleteMany({
+            teamId: item.teamId,
+            datasetId: item.datasetId,
+            collectionId: item.collectionId
+          });
         });
-
-        console.log('collection is not found', item);
-        continue;
       }
     } catch (error) {}
     if (++index % 100 === 0) {

@@ -1,104 +1,145 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/router';
 import { Box, Flex, Drawer, DrawerOverlay, DrawerContent } from '@chakra-ui/react';
-import { useSystemStore } from '@/web/common/system/useSystemStore';
 import { streamFetch } from '@/web/common/api/fetch';
-import { useShareChatStore } from '@/web/core/chat/storeShareChat';
 import SideBar from '@/components/SideBar';
 import { GPTMessages2Chats } from '@fastgpt/global/core/chat/adapt';
-import { customAlphabet } from 'nanoid';
-const nanoid = customAlphabet('abcdefghijklmnopqrstuvwxyz1234567890', 12);
 
 import ChatBox from '@/components/core/chat/ChatContainer/ChatBox';
 import type { StartChatFnProps } from '@/components/core/chat/ChatContainer/type';
 
 import PageContainer from '@/components/PageContainer';
-import ChatHeader from './components/ChatHeader';
-import ChatHistorySlider from './components/ChatHistorySlider';
-import { serviceSideProps } from '@/web/common/utils/i18n';
-import { checkChatSupportSelectFileByChatModels } from '@/web/core/chat/utils';
+import ChatHeader from '@/pageComponents/chat/ChatHeader';
+import ChatHistorySlider from '@/pageComponents/chat/ChatHistorySlider';
+import { serviceSideProps } from '@/web/common/i18n/utils';
 import { useTranslation } from 'next-i18next';
-import { delChatRecordById, getChatHistories, getInitOutLinkChatInfo } from '@/web/core/chat/api';
+import { getInitOutLinkChatInfo } from '@/web/core/chat/api';
 import { getChatTitleFromChatMessage } from '@fastgpt/global/core/chat/utils';
-import { ChatStatusEnum } from '@fastgpt/global/core/chat/constants';
 import { MongoOutLink } from '@fastgpt/service/support/outLink/schema';
-import { OutLinkWithAppType } from '@fastgpt/global/support/outLink/type';
 import { addLog } from '@fastgpt/service/common/system/log';
-import { connectToDatabase } from '@/service/mongo';
+
 import NextHead from '@/components/common/NextHead';
 import { useContextSelector } from 'use-context-selector';
 import ChatContextProvider, { ChatContext } from '@/web/core/chat/context/chatContext';
-import { InitChatResponse } from '@/global/core/chat/api';
-import { defaultChatData } from '@/global/core/chat/constants';
+import { GetChatTypeEnum } from '@/global/core/chat/constants';
 import { useMount } from 'ahooks';
 import { useRequest2 } from '@fastgpt/web/hooks/useRequest';
-import { AppTypeEnum } from '@fastgpt/global/core/app/constants';
-import { useChat } from '@/components/core/chat/ChatContainer/useChat';
 import { getNanoid } from '@fastgpt/global/common/string/tools';
 
 import dynamic from 'next/dynamic';
 import { useSystem } from '@fastgpt/web/hooks/useSystem';
-const CustomPluginRunBox = dynamic(() => import('./components/CustomPluginRunBox'));
+import { useShareChatStore } from '@/web/core/chat/storeShareChat';
+import ChatItemContextProvider, { ChatItemContext } from '@/web/core/chat/context/chatItemContext';
+import ChatRecordContextProvider, {
+  ChatRecordContext
+} from '@/web/core/chat/context/chatRecordContext';
+import { useChatStore } from '@/web/core/chat/context/useChatStore';
+import { ChatSourceEnum } from '@fastgpt/global/core/chat/constants';
+import { useI18nLng } from '@fastgpt/web/hooks/useI18n';
+import { type AppSchema } from '@fastgpt/global/core/app/type';
+import ChatQuoteList from '@/pageComponents/chat/ChatQuoteList';
+import { useToast } from '@fastgpt/web/hooks/useToast';
+
+const CustomPluginRunBox = dynamic(() => import('@/pageComponents/chat/CustomPluginRunBox'));
 
 type Props = {
+  appId: string;
   appName: string;
   appIntro: string;
   appAvatar: string;
   shareId: string;
   authToken: string;
+  customUid: string;
+  showRawSource: boolean;
+  responseDetail: boolean;
+  // showFullText: boolean;
+  showNodeStatus: boolean;
 };
 
-const OutLink = ({ appName, appIntro, appAvatar }: Props) => {
+const OutLink = (props: Props) => {
   const { t } = useTranslation();
   const router = useRouter();
   const {
     shareId = '',
-    chatId = '',
     showHistory = '1',
     showHead = '1',
     authToken,
+    customUid,
     ...customVariables
   } = router.query as {
     shareId: string;
-    chatId: string;
     showHistory: '0' | '1';
     showHead: '0' | '1';
     authToken: string;
     [key: string]: string;
   };
   const { isPc } = useSystem();
+  const { outLinkAuthData, appId, chatId } = useChatStore();
+
+  const isOpenSlider = useContextSelector(ChatContext, (v) => v.isOpenSlider);
+  const onCloseSlider = useContextSelector(ChatContext, (v) => v.onCloseSlider);
+  const forbidLoadChat = useContextSelector(ChatContext, (v) => v.forbidLoadChat);
+  const onChangeChatId = useContextSelector(ChatContext, (v) => v.onChangeChatId);
+  const onUpdateHistoryTitle = useContextSelector(ChatContext, (v) => v.onUpdateHistoryTitle);
+
+  const resetVariables = useContextSelector(ChatItemContext, (v) => v.resetVariables);
+  const isPlugin = useContextSelector(ChatItemContext, (v) => v.isPlugin);
+  const setChatBoxData = useContextSelector(ChatItemContext, (v) => v.setChatBoxData);
+  const quoteData = useContextSelector(ChatItemContext, (v) => v.quoteData);
+  const setQuoteData = useContextSelector(ChatItemContext, (v) => v.setQuoteData);
+  const isResponseDetail = useContextSelector(ChatItemContext, (v) => v.isResponseDetail);
+
+  const chatRecords = useContextSelector(ChatRecordContext, (v) => v.chatRecords);
+  const totalRecordsCount = useContextSelector(ChatRecordContext, (v) => v.totalRecordsCount);
+  const isChatRecordsLoaded = useContextSelector(ChatRecordContext, (v) => v.isChatRecordsLoaded);
+
   const initSign = useRef(false);
-  const [isEmbed, setIdEmbed] = useState(true);
+  const { data, loading } = useRequest2(
+    async () => {
+      const shareId = outLinkAuthData.shareId;
+      const outLinkUid = outLinkAuthData.outLinkUid;
+      if (!outLinkUid || !shareId || forbidLoadChat.current) return;
 
-  const [chatData, setChatData] = useState<InitChatResponse>(defaultChatData);
-  const appId = chatData.appId;
+      const res = await getInitOutLinkChatInfo({
+        chatId,
+        shareId,
+        outLinkUid
+      });
 
-  const { localUId } = useShareChatStore();
-  const outLinkUid: string = authToken || localUId;
+      setChatBoxData(res);
 
-  const {
-    loadHistories,
-    onUpdateHistory,
-    onClearHistories,
-    onDelHistory,
-    isOpenSlider,
-    onCloseSlider,
-    forbidLoadChat,
-    onChangeChatId
-  } = useContextSelector(ChatContext, (v) => v);
+      resetVariables({
+        variables: res.variables,
+        variableList: res.app?.chatConfig?.variables
+      });
 
-  const {
-    ChatBoxRef,
-    chatRecords,
-    setChatRecords,
-    variablesForm,
-    pluginRunTab,
-    setPluginRunTab,
-    resetChatRecords
-  } = useChat();
+      return res;
+    },
+    {
+      manual: false,
+      refreshDeps: [shareId, outLinkAuthData, chatId],
+      onFinally() {
+        forbidLoadChat.current = false;
+      }
+    }
+  );
+  useEffect(() => {
+    if (initSign.current === false && data && isChatRecordsLoaded) {
+      initSign.current = true;
+      if (window !== top) {
+        window.top?.postMessage({ type: 'shareChatReady' }, '*');
+      }
+    }
+  }, [data, isChatRecordsLoaded]);
 
   const startChat = useCallback(
-    async ({ messages, controller, generatingMessage, variables }: StartChatFnProps) => {
+    async ({
+      messages,
+      controller,
+      generatingMessage,
+      variables,
+      responseChatItemId
+    }: StartChatFnProps) => {
       const completionChatId = chatId || getNanoid();
       const histories = messages.slice(-1);
 
@@ -113,17 +154,17 @@ const OutLink = ({ appName, appIntro, appAvatar }: Props) => {
         '*'
       );
 
-      const { responseText, responseData } = await streamFetch({
+      const { responseText } = await streamFetch({
         data: {
           messages: histories,
           variables: {
             ...variables,
             ...customVariables
           },
-          shareId,
+          responseChatItemId,
           chatId: completionChatId,
-          appType: chatData.app.type,
-          outLinkUid
+          ...outLinkAuthData,
+          retainDatasetCite: isResponseDetail
         },
         onMessage: generatingMessage,
         abortCtrl: controller
@@ -135,10 +176,10 @@ const OutLink = ({ appName, appIntro, appAvatar }: Props) => {
       if (completionChatId !== chatId) {
         onChangeChatId(completionChatId, true);
       }
-      loadHistories();
+      onUpdateHistoryTitle({ chatId: completionChatId, newTitle });
 
       // update chat window
-      setChatData((state) => ({
+      setChatBoxData((state) => ({
         ...state,
         title: newTitle
       }));
@@ -155,234 +196,225 @@ const OutLink = ({ appName, appIntro, appAvatar }: Props) => {
         '*'
       );
 
-      return { responseText, responseData, isNewChat: forbidLoadChat.current };
+      return { responseText, isNewChat: forbidLoadChat.current };
     },
     [
       chatId,
       customVariables,
-      shareId,
-      chatData.app.type,
-      outLinkUid,
+      outLinkAuthData,
+      isResponseDetail,
+      onUpdateHistoryTitle,
+      setChatBoxData,
       forbidLoadChat,
-      onChangeChatId,
-      loadHistories
+      onChangeChatId
     ]
   );
 
-  const { loading } = useRequest2(
-    async () => {
-      if (!shareId || !outLinkUid || forbidLoadChat.current) return;
-
-      const res = await getInitOutLinkChatInfo({
-        chatId,
-        shareId,
-        outLinkUid
-      });
-      setChatData(res);
-
-      const history = res.history.map((item) => ({
-        ...item,
-        dataId: item.dataId || nanoid(),
-        status: ChatStatusEnum.finish
-      }));
-
-      resetChatRecords({
-        records: history,
-        variables: res.variables
-      });
-    },
-    {
-      manual: false,
-      refreshDeps: [shareId, outLinkUid, chatId],
-      onSuccess() {
-        // send init message
-        if (!initSign.current) {
-          initSign.current = true;
-          if (window !== top) {
-            window.top?.postMessage({ type: 'shareChatReady' }, '*');
-          }
-        }
-      },
-      onError(e: any) {
-        console.log(e);
-        if (chatId) {
-          onChangeChatId('');
-        }
-      },
-      onFinally() {
-        forbidLoadChat.current = false;
-      }
-    }
-  );
-
   // window init
+  const [isEmbed, setIdEmbed] = useState(true);
   useMount(() => {
     setIdEmbed(window !== top);
   });
 
+  const RenderHistoryList = useMemo(() => {
+    const Children = (
+      <ChatHistorySlider
+        confirmClearText={t('common:core.chat.Confirm to clear share chat history')}
+      />
+    );
+
+    if (showHistory !== '1') return null;
+
+    return isPc ? (
+      <SideBar externalTrigger={!!quoteData}>{Children}</SideBar>
+    ) : (
+      <Drawer
+        isOpen={isOpenSlider}
+        placement="left"
+        autoFocus={false}
+        size={'xs'}
+        onClose={onCloseSlider}
+      >
+        <DrawerOverlay backgroundColor={'rgba(255,255,255,0.5)'} />
+        <DrawerContent maxWidth={'75vw'} boxShadow={'2px 0 10px rgba(0,0,0,0.15)'}>
+          {Children}
+        </DrawerContent>
+      </Drawer>
+    );
+  }, [isOpenSlider, isPc, onCloseSlider, quoteData, showHistory, t]);
+
   return (
     <>
-      <NextHead title={appName} desc={appIntro} icon={appAvatar} />
-
-      <PageContainer
-        isLoading={loading}
-        {...(isEmbed
-          ? { p: '0 !important', insertProps: { borderRadius: '0', boxShadow: 'none' } }
-          : { p: [0, 5] })}
+      <NextHead
+        title={props.appName || data?.app?.name || 'AI'}
+        desc={props.appIntro || data?.app?.intro}
+        icon={props.appAvatar || data?.app?.avatar}
+      />
+      <Flex
+        h={'full'}
+        gap={4}
+        {...(isEmbed ? { p: '0 !important', borderRadius: '0', boxShadow: 'none' } : { p: [0, 5] })}
       >
-        <Flex h={'100%'} flexDirection={['column', 'row']}>
-          {showHistory === '1' &&
-            ((children: React.ReactNode) => {
-              return isPc ? (
-                <SideBar>{children}</SideBar>
-              ) : (
-                <Drawer
-                  isOpen={isOpenSlider}
-                  placement="left"
-                  autoFocus={false}
-                  size={'xs'}
-                  onClose={onCloseSlider}
-                >
-                  <DrawerOverlay backgroundColor={'rgba(255,255,255,0.5)'} />
-                  <DrawerContent maxWidth={'75vw'} boxShadow={'2px 0 10px rgba(0,0,0,0.15)'}>
-                    {children}
-                  </DrawerContent>
-                </Drawer>
-              );
-            })(
-              <ChatHistorySlider
-                appName={chatData.app.name}
-                appAvatar={chatData.app.avatar}
-                confirmClearText={t('common:core.chat.Confirm to clear share chat history')}
-                onDelHistory={({ chatId }) =>
-                  onDelHistory({ appId: chatData.appId, chatId, shareId, outLinkUid })
-                }
-                onClearHistory={() => {
-                  onClearHistories({ shareId, outLinkUid });
-                }}
-                onSetHistoryTop={(e) => {
-                  onUpdateHistory({
-                    ...e,
-                    appId: chatData.appId,
-                    shareId,
-                    outLinkUid
-                  });
-                }}
-                onSetCustomTitle={(e) => {
-                  onUpdateHistory({
-                    appId: chatData.appId,
-                    chatId: e.chatId,
-                    customTitle: e.title,
-                    shareId,
-                    outLinkUid
-                  });
-                }}
-              />
-            )}
+        {(!quoteData || isPc) && (
+          <PageContainer flex={'1 0 0'} w={0} p={'0 !important'}>
+            <Flex h={'100%'} flexDirection={['column', 'row']}>
+              {RenderHistoryList}
 
-          {/* chat container */}
-          <Flex
-            position={'relative'}
-            h={[0, '100%']}
-            w={['100%', 0]}
-            flex={'1 0 0'}
-            flexDirection={'column'}
-          >
-            {/* header */}
-            {showHead === '1' ? (
-              <ChatHeader
-                chatData={chatData}
-                history={chatRecords}
-                showHistory={showHistory === '1'}
-              />
-            ) : null}
-            {/* chat box */}
-            <Box flex={1} bg={'white'}>
-              {chatData.app.type === AppTypeEnum.plugin ? (
-                <CustomPluginRunBox
-                  pluginInputs={chatData.app.pluginInputs}
-                  variablesForm={variablesForm}
-                  histories={chatRecords}
-                  setHistories={setChatRecords}
-                  appId={chatData.appId}
-                  tab={pluginRunTab}
-                  setTab={setPluginRunTab}
-                  onNewChat={() => onChangeChatId(getNanoid())}
-                  onStartChat={startChat}
-                />
-              ) : (
-                <ChatBox
-                  ref={ChatBoxRef}
-                  chatHistories={chatRecords}
-                  setChatHistories={setChatRecords}
-                  variablesForm={variablesForm}
-                  appAvatar={chatData.app.avatar}
-                  userAvatar={chatData.userAvatar}
-                  chatConfig={chatData.app?.chatConfig}
-                  showFileSelector={checkChatSupportSelectFileByChatModels(chatData.app.chatModels)}
-                  feedbackType={'user'}
-                  onStartChat={startChat}
-                  onDelMessage={({ contentId }) =>
-                    delChatRecordById({
-                      contentId,
-                      appId: chatData.appId,
-                      chatId,
-                      shareId,
-                      outLinkUid
-                    })
-                  }
-                  appId={chatData.appId}
-                  chatId={chatId}
-                  shareId={shareId}
-                  outLinkUid={outLinkUid}
-                />
-              )}
-            </Box>
-          </Flex>
-        </Flex>
-      </PageContainer>
+              {/* chat container */}
+              <Flex
+                position={'relative'}
+                h={[0, '100%']}
+                w={['100%', 0]}
+                flex={'1 0 0'}
+                flexDirection={'column'}
+              >
+                {/* header */}
+                {showHead === '1' ? (
+                  <ChatHeader
+                    history={chatRecords}
+                    totalRecordsCount={totalRecordsCount}
+                    showHistory={showHistory === '1'}
+                  />
+                ) : null}
+                {/* chat box */}
+                <Box flex={1} bg={'white'}>
+                  {isPlugin ? (
+                    <CustomPluginRunBox
+                      appId={appId}
+                      chatId={chatId}
+                      outLinkAuthData={outLinkAuthData}
+                      onNewChat={() => onChangeChatId(getNanoid())}
+                      onStartChat={startChat}
+                    />
+                  ) : (
+                    <ChatBox
+                      isReady={!loading}
+                      appId={appId}
+                      chatId={chatId}
+                      outLinkAuthData={outLinkAuthData}
+                      feedbackType={'user'}
+                      onStartChat={startChat}
+                      chatType="share"
+                    />
+                  )}
+                </Box>
+              </Flex>
+            </Flex>
+          </PageContainer>
+        )}
+
+        {quoteData && (
+          <PageContainer flex={'1 0 0'} w={0} maxW={'560px'} p={'0 !important'}>
+            <ChatQuoteList
+              rawSearch={quoteData.rawSearch}
+              metadata={quoteData.metadata}
+              onClose={() => setQuoteData(undefined)}
+            />
+          </PageContainer>
+        )}
+      </Flex>
     </>
   );
 };
 
 const Render = (props: Props) => {
-  const { shareId, authToken } = props;
-  const { localUId } = useShareChatStore();
-  const outLinkUid: string = authToken || localUId;
+  const { t } = useTranslation();
+  const { toast } = useToast();
+  const { shareId, authToken, customUid, appId } = props;
+  const { localUId, setLocalUId, loaded } = useShareChatStore();
+  const { source, chatId, setSource, setAppId, setOutLinkAuthData } = useChatStore();
+  const { setUserDefaultLng } = useI18nLng();
 
-  const { data: histories = [], runAsync: loadHistories } = useRequest2(
-    () => (shareId && outLinkUid ? getChatHistories({ shareId, outLinkUid }) : Promise.resolve([])),
-    {
-      manual: false,
-      refreshDeps: [shareId, outLinkUid]
+  const chatHistoryProviderParams = useMemo(() => {
+    return { shareId, outLinkUid: authToken || customUid || localUId || '' };
+  }, [authToken, customUid, localUId, shareId]);
+  const chatRecordProviderParams = useMemo(() => {
+    return {
+      appId,
+      shareId,
+      outLinkUid: chatHistoryProviderParams.outLinkUid,
+      chatId,
+      type: GetChatTypeEnum.outLink
+    };
+  }, [appId, chatHistoryProviderParams.outLinkUid, chatId, shareId]);
+
+  useMount(() => {
+    setSource('share');
+    setUserDefaultLng(true);
+  });
+
+  // Set default localUId
+  useEffect(() => {
+    if (loaded) {
+      if (!localUId) {
+        setLocalUId(`shareChat-${Date.now()}-${getNanoid(24)}`);
+      }
     }
-  );
+  }, [loaded, localUId, setLocalUId]);
 
-  return (
-    <ChatContextProvider histories={histories} loadHistories={loadHistories}>
-      <OutLink {...props} />;
+  // Init outLinkAuthData
+  useEffect(() => {
+    if (chatHistoryProviderParams.outLinkUid) {
+      setOutLinkAuthData({
+        shareId,
+        outLinkUid: chatHistoryProviderParams.outLinkUid
+      });
+    }
+    return () => {
+      setOutLinkAuthData({});
+    };
+  }, [chatHistoryProviderParams.outLinkUid, setOutLinkAuthData, shareId]);
+
+  // Watch appId
+  useEffect(() => {
+    setAppId(appId);
+  }, [appId, setAppId]);
+  useMount(() => {
+    if (!appId) {
+      toast({
+        status: 'warning',
+        title: t('chat:invalid_share_url')
+      });
+    }
+  });
+
+  return source === ChatSourceEnum.share ? (
+    <ChatContextProvider params={chatHistoryProviderParams}>
+      <ChatItemContextProvider
+        showRouteToAppDetail={false}
+        showRouteToDatasetDetail={false}
+        isShowReadRawSource={props.showRawSource}
+        isResponseDetail={props.responseDetail}
+        // isShowFullText={props.showFullText}
+        showNodeStatus={props.showNodeStatus}
+      >
+        <ChatRecordContextProvider params={chatRecordProviderParams}>
+          <OutLink {...props} />
+        </ChatRecordContextProvider>
+      </ChatItemContextProvider>
     </ChatContextProvider>
+  ) : (
+    <NextHead title={props.appName} desc={props.appIntro} icon={props.appAvatar} />
   );
 };
 
-export default Render;
+export default React.memo(Render);
 
 export async function getServerSideProps(context: any) {
   const shareId = context?.query?.shareId || '';
   const authToken = context?.query?.authToken || '';
+  const customUid = context?.query?.customUid || '';
 
   const app = await (async () => {
     try {
-      await connectToDatabase();
-      const app = (await MongoOutLink.findOne(
+      return MongoOutLink.findOne(
         {
           shareId
         },
-        'appId'
+        'appId showRawSource showNodeStatus responseDetail'
       )
-        .populate('appId', 'name avatar intro')
-        .lean()) as OutLinkWithAppType;
-      return app;
+        .populate<{ associatedApp: AppSchema }>('associatedApp', 'name avatar intro')
+        .lean();
     } catch (error) {
       addLog.error('getServerSideProps', error);
       return undefined;
@@ -391,12 +423,18 @@ export async function getServerSideProps(context: any) {
 
   return {
     props: {
-      appName: app?.appId?.name ?? 'name',
-      appAvatar: app?.appId?.avatar ?? '',
-      appIntro: app?.appId?.intro ?? 'intro',
+      appId: app?.appId ? String(app?.appId) : '',
+      appName: app?.associatedApp?.name ?? 'AI',
+      appAvatar: app?.associatedApp?.avatar ?? '',
+      appIntro: app?.associatedApp?.intro ?? 'AI',
+      showRawSource: app?.showRawSource ?? false,
+      responseDetail: app?.responseDetail ?? false,
+      // showFullText: app?.showFullText ?? false,
+      showNodeStatus: app?.showNodeStatus ?? false,
       shareId: shareId ?? '',
       authToken: authToken ?? '',
-      ...(await serviceSideProps(context, ['file', 'app']))
+      customUid,
+      ...(await serviceSideProps(context, ['file', 'app', 'chat', 'workflow']))
     }
   };
 }

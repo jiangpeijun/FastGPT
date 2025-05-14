@@ -1,15 +1,14 @@
 import React, { useCallback, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import type { ResLogin } from '@/global/support/api/userRes.d';
-import { useChatStore } from '@/web/core/chat/context/storeChat';
 import { useUserStore } from '@/web/support/user/useUserStore';
-import { clearToken, setToken } from '@/web/support/user/auth';
+import { clearToken } from '@/web/support/user/auth';
 import { postFastLogin } from '@/web/support/user/api';
 import { useToast } from '@fastgpt/web/hooks/useToast';
 import Loading from '@fastgpt/web/components/common/MyLoading';
-import { serviceSideProps } from '@/web/common/utils/i18n';
+import { serviceSideProps } from '@/web/common/i18n/utils';
 import { getErrText } from '@fastgpt/global/common/error/utils';
-
+import { useTranslation } from 'next-i18next';
 const FastLogin = ({
   code,
   token,
@@ -19,25 +18,19 @@ const FastLogin = ({
   token: string;
   callbackUrl: string;
 }) => {
-  const { setLastChatId, setLastChatAppId } = useChatStore();
   const { setUserInfo } = useUserStore();
   const router = useRouter();
   const { toast } = useToast();
-
+  const { t } = useTranslation();
   const loginSuccess = useCallback(
     (res: ResLogin) => {
-      setToken(res.token);
       setUserInfo(res.user);
-
-      // init store
-      setLastChatId('');
-      setLastChatAppId('');
 
       setTimeout(() => {
         router.push(decodeURIComponent(callbackUrl));
       }, 100);
     },
-    [setLastChatId, setLastChatAppId, setUserInfo, router, callbackUrl]
+    [setUserInfo, router, callbackUrl]
   );
 
   const authCode = useCallback(
@@ -50,7 +43,7 @@ const FastLogin = ({
         if (!res) {
           toast({
             status: 'warning',
-            title: '登录异常'
+            title: t('common:support.user.login.error')
           });
           return setTimeout(() => {
             router.replace('/login');
@@ -60,21 +53,21 @@ const FastLogin = ({
       } catch (error) {
         toast({
           status: 'warning',
-          title: getErrText(error, '登录异常')
+          title: getErrText(error, t('common:support.user.login.error'))
         });
         setTimeout(() => {
           router.replace('/login');
         }, 1000);
       }
     },
-    [loginSuccess, router, toast]
+    [loginSuccess, router, t, toast]
   );
 
   useEffect(() => {
     clearToken();
     router.prefetch(callbackUrl);
     authCode(code, token);
-  }, []);
+  }, [authCode, callbackUrl, code, router, token]);
 
   return <Loading />;
 };
@@ -84,7 +77,7 @@ export async function getServerSideProps(content: any) {
     props: {
       code: content?.query?.code || '',
       token: content?.query?.token || '',
-      callbackUrl: content?.query?.callbackUrl || '/app/list',
+      callbackUrl: content?.query?.callbackUrl || '/dashboard/apps',
       ...(await serviceSideProps(content))
     }
   };

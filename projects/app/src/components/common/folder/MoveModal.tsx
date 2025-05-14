@@ -1,16 +1,17 @@
-import React, { useCallback, useState } from 'react';
+import React, { useState } from 'react';
 import MyModal from '@fastgpt/web/components/common/MyModal';
 import { useTranslation } from 'next-i18next';
 import { Box, Button, Flex, ModalBody, ModalFooter } from '@chakra-ui/react';
 import {
-  GetResourceFolderListProps,
-  GetResourceFolderListItemResponse,
-  ParentIdType
+  type GetResourceFolderListProps,
+  type GetResourceFolderListItemResponse,
+  type ParentIdType
 } from '@fastgpt/global/common/parentFolder/type';
 import { useMemoizedFn, useMount } from 'ahooks';
 import MyIcon from '@fastgpt/web/components/common/Icon';
 import { FolderIcon } from '@fastgpt/global/common/file/image/constants';
 import { useRequest2 } from '@fastgpt/web/hooks/useRequest';
+import LightTip from '@fastgpt/web/components/common/LightTip';
 
 type FolderItemType = {
   id: string;
@@ -27,9 +28,10 @@ type Props = {
   server: (e: GetResourceFolderListProps) => Promise<GetResourceFolderListItemResponse[]>;
   onConfirm: (id: ParentIdType) => Promise<any>;
   onClose: () => void;
+  moveHint?: string;
 };
 
-const MoveModal = ({ moveResourceId, title, server, onConfirm, onClose }: Props) => {
+const MoveModal = ({ moveResourceId, title, server, onConfirm, onClose, moveHint }: Props) => {
   const { t } = useTranslation();
   const [selectedId, setSelectedId] = React.useState<string>();
   const [requestingIdList, setRequestingIdList] = useState<ParentIdType[]>([]);
@@ -49,7 +51,7 @@ const MoveModal = ({ moveResourceId, title, server, onConfirm, onClose }: Props)
     setFolderList([
       {
         id: rootId,
-        name: t('common:common.folder.Root Path'),
+        name: t('common:root_folder'),
         open: true,
         children: data.map((item) => ({
           id: item.id,
@@ -156,7 +158,7 @@ const MoveModal = ({ moveResourceId, title, server, onConfirm, onClose }: Props)
       onSuccess: () => {
         onClose();
       },
-      successToast: t('common:common.folder.Move Success')
+      successToast: t('common:move_success')
     }
   );
 
@@ -170,11 +172,16 @@ const MoveModal = ({ moveResourceId, title, server, onConfirm, onClose }: Props)
       onClose={onClose}
     >
       <ModalBody flex={'1 0 0'} overflow={'auto'} minH={'400px'}>
+        {moveHint && (
+          <Box mb={1}>
+            <LightTip text={moveHint} />
+          </Box>
+        )}
         <RenderList list={folderList} />
       </ModalBody>
       <ModalFooter>
         <Button isLoading={confirming} isDisabled={!selectedId} onClick={onConfirmSelect}>
-          {t('common:common.Confirm')}
+          {t('common:Confirm')}
         </Button>
       </ModalFooter>
     </MyModal>

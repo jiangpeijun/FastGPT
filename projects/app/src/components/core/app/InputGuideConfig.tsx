@@ -8,8 +8,7 @@ import {
   useDisclosure,
   Switch,
   Textarea,
-  Checkbox,
-  HStack
+  Checkbox
 } from '@chakra-ui/react';
 import React, { useMemo, useState } from 'react';
 import { useTranslation } from 'next-i18next';
@@ -17,10 +16,10 @@ import type { ChatInputGuideConfigType } from '@fastgpt/global/core/app/type.d';
 import MyModal from '@fastgpt/web/components/common/MyModal';
 import MyInput from '@/components/MyInput';
 import QuestionTip from '@fastgpt/web/components/common/MyTooltip/QuestionTip';
-import { useI18n } from '@/web/context/I18n';
 import { fileDownload } from '@/web/common/file/utils';
 import { getDocPath } from '@/web/common/system/doc';
 import {
+  delAllChatInputGuide,
   delChatInputGuide,
   getChatInputGuideList,
   getCountChatInputGuideTotal,
@@ -28,7 +27,7 @@ import {
   putChatInputGuide
 } from '@/web/core/chat/inputGuide/api';
 import { useQuery } from '@tanstack/react-query';
-import { useScrollPagination } from '@fastgpt/web/hooks/useScrollPagination';
+import { useVirtualScrollPagination } from '@fastgpt/web/hooks/useScrollPagination';
 import EmptyTip from '@fastgpt/web/components/common/EmptyTip';
 import { useToast } from '@fastgpt/web/hooks/useToast';
 import { useSelectFile } from '@/web/common/file/hooks/useSelectFile';
@@ -38,6 +37,7 @@ import HighlightText from '@fastgpt/web/components/common/String/HighlightText';
 import { defaultChatInputGuideConfig } from '@fastgpt/global/core/app/constants';
 import ChatFunctionTip from './Tip';
 import FormLabel from '@fastgpt/web/components/common/MyBox/FormLabel';
+import { useConfirm } from '@fastgpt/web/hooks/useConfirm';
 
 const csvTemplate = `"第一列内容"
 "只会将第一列内容导入，其余列会被忽略"
@@ -53,7 +53,6 @@ const InputGuideConfig = ({
   onChange: (e: ChatInputGuideConfigType) => void;
 }) => {
   const { t } = useTranslation();
-  const { chatT, commonT } = useI18n();
   const { isOpen, onOpen, onClose } = useDisclosure();
   const {
     isOpen: isOpenLexiconConfig,
@@ -86,23 +85,24 @@ const InputGuideConfig = ({
     <Flex alignItems={'center'}>
       <MyIcon name={'core/app/inputGuides'} mr={2} w={'20px'} />
       <Flex alignItems={'center'}>
-        <FormLabel>{chatT('input_guide')}</FormLabel>
+        <FormLabel color={'myGray.600'}>{t('chat:input_guide')}</FormLabel>
         <ChatFunctionTip type={'inputGuide'} />
       </Flex>
       <Box flex={1} />
-      <MyTooltip label={chatT('config_input_guide')}>
+      <MyTooltip label={t('chat:config_input_guide')}>
         <Button
           variant={'transparentBase'}
           iconSpacing={1}
           size={'sm'}
           mr={'-5px'}
+          color={'myGray.600'}
           onClick={onOpen}
         >
           {formLabel}
         </Button>
       </MyTooltip>
       <MyModal
-        title={chatT('input_guide')}
+        title={t('chat:input_guide')}
         iconSrc="core/app/inputGuides"
         isOpen={isOpen}
         onClose={onClose}
@@ -124,7 +124,7 @@ const InputGuideConfig = ({
           {isOpenQuestionGuide && (
             <>
               <Flex mt={8} alignItems={'center'}>
-                <FormLabel>{chatT('input_guide_lexicon')}</FormLabel>
+                <FormLabel>{t('chat:input_guide_lexicon')}</FormLabel>
                 <Box fontSize={'xs'} px={2} bg={'myGray.100'} ml={1} rounded={'full'}>
                   {total}
                 </Box>
@@ -137,20 +137,20 @@ const InputGuideConfig = ({
                     onOpenLexiconConfig();
                   }}
                 >
-                  {chatT('config_input_guide_lexicon')}
+                  {t('chat:config_input_guide_lexicon')}
                 </Button>
               </Flex>
               <>
                 <Flex mt={8} alignItems={'center'}>
-                  <FormLabel>{chatT('custom_input_guide_url')}</FormLabel>
+                  <FormLabel>{t('chat:custom_input_guide_url')}</FormLabel>
                   <Flex
-                    onClick={() => window.open(getDocPath('/docs/course/chat_input_guide'))}
+                    onClick={() => window.open(getDocPath('/docs/guide/course/chat_input_guide/'))}
                     color={'primary.700'}
                     alignItems={'center'}
                     cursor={'pointer'}
                   >
-                    <MyIcon name={'book'} ml={4} mr={1} />
-                    {commonT('common.Documents')}
+                    <MyIcon name={'book'} w={'17px'} ml={4} mr={1} color={'myGray.600'} />
+                    {t('common:Documents')}
                   </Flex>
                   <Box flex={'1 0 0'} />
                 </Flex>
@@ -179,7 +179,6 @@ const InputGuideConfig = ({
 export default React.memo(InputGuideConfig);
 
 const LexiconConfigModal = ({ appId, onClose }: { appId: string; onClose: () => void }) => {
-  const { chatT, commonT } = useI18n();
   const { t } = useTranslation();
   const { toast } = useToast();
   const { File, onOpen: onOpenSelectFile } = useSelectFile({
@@ -192,16 +191,20 @@ const LexiconConfigModal = ({ appId, onClose }: { appId: string; onClose: () => 
 
   const [searchKey, setSearchKey] = useState('');
 
+  const { openConfirm: openConfirmDel, ConfirmModal: DelConfirmModal } = useConfirm({
+    type: 'delete'
+  });
+
   const {
-    list,
+    scrollDataList,
     setData,
     ScrollList,
     isLoading: isRequesting,
     fetchData,
     scroll2Top
-  } = useScrollPagination(getChatInputGuideList, {
+  } = useVirtualScrollPagination(getChatInputGuideList, {
     refreshDeps: [searchKey],
-    debounceWait: 300,
+    // debounceWait: 300,
 
     itemHeight: 48,
     overscan: 20,
@@ -214,7 +217,7 @@ const LexiconConfigModal = ({ appId, onClose }: { appId: string; onClose: () => 
   });
 
   const { run: createNewData, loading: isCreating } = useRequest2(
-    (textList: string[]) => {
+    async (textList: string[]) => {
       if (textList.filter(Boolean).length === 0) {
         return Promise.resolve();
       }
@@ -226,12 +229,12 @@ const LexiconConfigModal = ({ appId, onClose }: { appId: string; onClose: () => 
         if (res.insertLength < textList.length) {
           toast({
             status: 'warning',
-            title: chatT('insert_input_guide,_some_data_already_exists', { len: res.insertLength })
+            title: t('chat:insert_input_guide,_some_data_already_exists', { len: res.insertLength })
           });
         } else {
           toast({
             status: 'success',
-            title: t('common:common.Add Success')
+            title: t('common:add_success')
           });
         }
         fetchData(1);
@@ -275,6 +278,12 @@ const LexiconConfigModal = ({ appId, onClose }: { appId: string; onClose: () => 
       dataIdList
     });
   };
+  const onDeleteAllData = () => {
+    setData([]);
+    delAllChatInputGuide({
+      appId
+    });
+  };
 
   const onSelectFile = async (files: File[]) => {
     const file = files?.[0];
@@ -289,7 +298,7 @@ const LexiconConfigModal = ({ appId, onClose }: { appId: string; onClose: () => 
 
   return (
     <MyModal
-      title={chatT('config_input_guide_lexicon_title')}
+      title={t('chat:config_input_guide_lexicon_title')}
       iconSrc="core/app/inputGuides"
       isOpen={true}
       onClose={onClose}
@@ -304,7 +313,7 @@ const LexiconConfigModal = ({ appId, onClose }: { appId: string; onClose: () => 
             bg={'myGray.50'}
             w={'full'}
             h={9}
-            placeholder={commonT('common.Search')}
+            placeholder={t('common:Search')}
             onChange={(e) => setSearchKey(e.target.value)}
           />
         </Box>
@@ -314,7 +323,7 @@ const LexiconConfigModal = ({ appId, onClose }: { appId: string; onClose: () => 
           size={'sm'}
           leftIcon={<MyIcon name={'common/importLight'} boxSize={4} />}
         >
-          {commonT('common.Import')}
+          {t('common:Import')}
         </Button>
         <Box
           cursor={'pointer'}
@@ -326,7 +335,7 @@ const LexiconConfigModal = ({ appId, onClose }: { appId: string; onClose: () => 
             });
           }}
         >
-          <QuestionTip ml={-2} label={chatT('csv_input_lexicon_tip')} />
+          <QuestionTip ml={-2} label={t('chat:csv_input_lexicon_tip')} />
         </Box>
       </Flex>
       <Box px={8}>
@@ -344,7 +353,25 @@ const LexiconConfigModal = ({ appId, onClose }: { appId: string; onClose: () => 
                 setSelectedRows([]);
               }}
             >
-              {commonT('common.Delete')}
+              {t('common:Delete')}
+            </Button>
+            <Button
+              variant={'whiteBase'}
+              display={selectedRows.length !== 0 ? 'none' : 'flex'}
+              size={'sm'}
+              leftIcon={<MyIcon name={'delete'} boxSize={4} />}
+              onClick={() =>
+                openConfirmDel(
+                  () => {
+                    onDeleteAllData();
+                    setSelectedRows([]);
+                  },
+                  undefined,
+                  t('chat:delete_all_input_guide_confirm')
+                )()
+              }
+            >
+              {t('chat:Delete_all')}
             </Button>
             <Button
               display={selectedRows.length !== 0 ? 'none' : 'flex'}
@@ -354,17 +381,17 @@ const LexiconConfigModal = ({ appId, onClose }: { appId: string; onClose: () => 
               size={'sm'}
               leftIcon={<MyIcon name={'common/addLight'} boxSize={4} />}
             >
-              {commonT('common.Add')}
+              {t('common:Add')}
             </Button>
           </Flex>
         </Flex>
         {/* new data input */}
         {newData !== undefined && (
-          <Box mt={5} ml={list.length > 0 ? 7 : 0}>
+          <Box mt={5} ml={scrollDataList.length > 0 ? 7 : 0}>
             <MyInput
               autoFocus
               rightIcon={<MyIcon name={'save'} w={'14px'} cursor={'pointer'} />}
-              placeholder={chatT('new_input_guide_lexicon')}
+              placeholder={t('chat:new_input_guide_lexicon')}
               onBlur={(e) => {
                 createNewData([e.target.value.trim()]);
               }}
@@ -381,9 +408,9 @@ const LexiconConfigModal = ({ appId, onClose }: { appId: string; onClose: () => 
         px={8}
         flex={'1 0 0'}
         fontSize={'sm'}
-        EmptyChildren={<EmptyTip text={chatT('chat_input_guide_lexicon_is_empty')} />}
+        EmptyChildren={<EmptyTip text={t('chat:chat_input_guide_lexicon_is_empty')} />}
       >
-        {list.map((data, index) => {
+        {scrollDataList.map((data, index) => {
           const item = data.data;
 
           const selected = selectedRows.includes(item._id);
@@ -404,6 +431,7 @@ const LexiconConfigModal = ({ appId, onClose }: { appId: string; onClose: () => 
               <Checkbox
                 mr={2}
                 isChecked={selected}
+                icon={<MyIcon name={'common/check'} w={'12px'} />}
                 onChange={(e) => {
                   if (e.target.checked) {
                     setSelectedRows([...selectedRows, item._id]);
@@ -476,6 +504,7 @@ const LexiconConfigModal = ({ appId, onClose }: { appId: string; onClose: () => 
         })}
       </ScrollList>
 
+      <DelConfirmModal />
       <File onSelect={onSelectFile} />
     </MyModal>
   );

@@ -1,6 +1,7 @@
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
 import { LexicalTypeaheadMenuPlugin } from '@lexical/react/LexicalTypeaheadMenuPlugin';
-import { $createTextNode, $getSelection, $isRangeSelection, TextNode } from 'lexical';
+import type { TextNode } from 'lexical';
+import { $createTextNode, $getSelection, $isRangeSelection } from 'lexical';
 import * as React from 'react';
 import { useCallback, useState } from 'react';
 import * as ReactDOM from 'react-dom';
@@ -8,7 +9,7 @@ import { useTranslation } from 'next-i18next';
 import MyIcon from '../../../../Icon';
 import { Box, Flex } from '@chakra-ui/react';
 import { useBasicTypeaheadTriggerMatch } from '../../utils';
-import { EditorVariablePickerType } from '../../type.d';
+import { type EditorVariablePickerType } from '../../type.d';
 
 export default function VariablePickerPlugin({
   variables
@@ -64,8 +65,9 @@ export default function VariablePickerPlugin({
                 borderRadius={'md'}
                 position={'absolute'}
                 w={'auto'}
-                overflow={'hidden'}
                 zIndex={99999}
+                maxH={'300px'}
+                overflow={'auto'}
               >
                 {variables.map((item, index) => (
                   <Flex
@@ -101,7 +103,7 @@ export default function VariablePickerPlugin({
                     <MyIcon name={(item.icon as any) || 'core/modules/variable'} w={'14px'} />
                     <Box ml={2} fontSize={'sm'} whiteSpace={'nowrap'}>
                       {item.key}
-                      {item.key !== item.label && `(${item.label})`}
+                      {item.key !== item.label && `(${t(item.label as any)})`}
                     </Box>
                   </Flex>
                 ))}

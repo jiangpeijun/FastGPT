@@ -1,5 +1,5 @@
 import { Box, Flex } from '@chakra-ui/react';
-import { ParentTreePathItemType } from '@fastgpt/global/common/parentFolder/type';
+import { type ParentTreePathItemType } from '@fastgpt/global/common/parentFolder/type';
 import React, { useMemo } from 'react';
 import { useTranslation } from 'next-i18next';
 
@@ -11,13 +11,7 @@ const ParentPaths = (props: {
   fontSize?: string;
 }) => {
   const { t } = useTranslation();
-  const {
-    paths = [],
-    rootName = t('common:common.folder.Root Path'),
-    FirstPathDom,
-    onClick,
-    fontSize
-  } = props;
+  const { paths = [], rootName = t('common:root_folder'), FirstPathDom, onClick, fontSize } = props;
   const concatPaths = useMemo(
     () => [
       {
@@ -60,7 +54,7 @@ const ParentPaths = (props: {
             {item.parentName}
           </Box>
           {i !== concatPaths.length - 1 && (
-            <Box mx={1.5} color={'myGray.500'}>
+            <Box mx={1} color={'myGray.500'}>
               /
             </Box>
           )}

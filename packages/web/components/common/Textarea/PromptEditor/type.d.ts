@@ -1,4 +1,4 @@
-import { WorkflowIOValueTypeEnum } from '@fastgpt/global/core/workflow/constants';
+import type { WorkflowIOValueTypeEnum } from '@fastgpt/global/core/workflow/constants';
 
 export type EditorVariablePickerType = {
   key: string;
@@ -6,6 +6,7 @@ export type EditorVariablePickerType = {
   required?: boolean;
   icon?: string;
   valueType?: WorkflowIOValueTypeEnum;
+  valueDesc?: string;
 };
 
 export type EditorVariableLabelPickerType = {

@@ -1,4 +1,4 @@
-import { StandardSubLevelEnum, SubModeEnum } from './constants';
+import type { StandardSubLevelEnum, SubModeEnum } from './constants';
 import { TeamSubSchema } from './type.d';
 
 export type StandardSubPlanParams = {
@@ -12,6 +12,7 @@ export type StandardSubPlanUpdateResponse = {
   payPrice?: number;
   planPrice: number;
   planPointPrice: number;
+  name?: string;
 
   currentMode: `${SubModeEnum}`;
   nextMode: `${SubModeEnum}`;

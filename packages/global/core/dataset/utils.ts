@@ -34,18 +34,7 @@ export function getSourceNameIcon({
     }
   } catch (error) {}
 
-  return 'file/fill/manual';
-}
-
-/* get dataset data default index */
-export function getDefaultIndex(props?: { q?: string; a?: string; dataId?: string }) {
-  const { q = '', a, dataId } = props || {};
-  const qaStr = `${q}\n${a}`.trim();
-  return {
-    defaultIndex: true,
-    text: a ? qaStr : q,
-    dataId
-  };
+  return 'file/fill/file';
 }
 
 export const predictDataLimitLength = (mode: TrainingModeEnum, data: any[]) => {

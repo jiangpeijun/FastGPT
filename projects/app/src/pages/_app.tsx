@@ -6,36 +6,76 @@ import { appWithTranslation } from 'next-i18next';
 
 import QueryClientContext from '@/web/context/QueryClient';
 import ChakraUIContext from '@/web/context/ChakraUI';
-import I18nContextProvider from '@/web/context/I18n';
 import { useInitApp } from '@/web/context/useInitApp';
-
+import { useTranslation } from 'next-i18next';
 import '@/web/styles/reset.scss';
 import NextHead from '@/components/common/NextHead';
+import { type ReactElement, useEffect } from 'react';
+import { type NextPage } from 'next';
+import { getWebReqUrl } from '@fastgpt/web/common/system/utils';
+import SystemStoreContextProvider from '@fastgpt/web/context/useSystem';
+import { useRouter } from 'next/router';
 
-function App({ Component, pageProps }: AppProps) {
+type NextPageWithLayout = NextPage & {
+  setLayout?: (page: ReactElement) => JSX.Element;
+};
+type AppPropsWithLayout = AppProps & {
+  Component: NextPageWithLayout;
+};
+
+// 哪些路由有自定义 Head
+const routesWithCustomHead = [
+  '/chat',
+  '/chat/share',
+  'chat/team',
+  '/app/detail/',
+  '/dataset/detail'
+];
+
+function App({ Component, pageProps }: AppPropsWithLayout) {
   const { feConfigs, scripts, title } = useInitApp();
+  const { t } = useTranslation();
+
+  // Forbid touch scale
+  useEffect(() => {
+    document.addEventListener(
+      'wheel',
+      function (e) {
+        if (e.ctrlKey && Math.abs(e.deltaY) !== 0) {
+          e.preventDefault();
+        }
+      },
+      { passive: false }
+    );
+  }, []);
+
+  const setLayout = Component.setLayout || ((page) => <>{page}</>);
+
+  const router = useRouter();
+  const showHead = !router?.pathname || !routesWithCustomHead.includes(router.pathname);
 
   return (
     <>
-      <NextHead
-        title={title}
-        desc={
-          feConfigs?.systemDescription ||
-          process.env.SYSTEM_DESCRIPTION ||
-          `${title} 是一个大模型应用编排系统，提供开箱即用的数据处理、模型调用等能力，可以快速的构建知识库并通过 Flow 可视化进行工作流编排，实现复杂的知识库场景！`
-        }
-        icon={feConfigs?.favicon || process.env.SYSTEM_FAVICON}
-      />
+      {showHead && (
+        <NextHead
+          title={title}
+          desc={
+            feConfigs?.systemDescription ||
+            process.env.SYSTEM_DESCRIPTION ||
+            `${title}${t('app:intro')}`
+          }
+          icon={getWebReqUrl(feConfigs?.favicon || process.env.SYSTEM_FAVICON)}
+        />
+      )}
+
       {scripts?.map((item, i) => <Script key={i} strategy="lazyOnload" {...item}></Script>)}
 
       <QueryClientContext>
-        <I18nContextProvider>
+        <SystemStoreContextProvider device={pageProps.deviceSize}>
           <ChakraUIContext>
-            <Layout>
-              <Component {...pageProps} />
-            </Layout>
+            <Layout>{setLayout(<Component {...pageProps} />)}</Layout>
           </ChakraUIContext>
-        </I18nContextProvider>
+        </SystemStoreContextProvider>
       </QueryClientContext>
     </>
   );

@@ -18,7 +18,7 @@ import type { TeamTagItemType } from '@fastgpt/global/support/user/team/type';
 import { useRequest } from '@fastgpt/web/hooks/useRequest';
 import { RepeatIcon } from '@chakra-ui/icons';
 import MyIcon from '@fastgpt/web/components/common/Icon';
-import { useCopyData } from '@/web/common/hooks/useCopyData';
+import { useCopyData } from '@fastgpt/web/hooks/useCopyData';
 import { useUserStore } from '@/web/support/user/useUserStore';
 import { useQuery } from '@tanstack/react-query';
 import { getTeamsTags, loadTeamTagsByDomain } from '@/web/support/user/team/api';
@@ -63,7 +63,7 @@ const TeamTagsAsync = ({ onClose }: { onClose: () => void }) => {
       initUserInfo();
       onClose();
     },
-    errorToast: t('common:common.Create Failed')
+    errorToast: t('common:create_failed')
   });
   const { mutate: onclickTagAsync, isLoading: isSyncing } = useRequest({
     mutationFn: (data: FormType) => loadTeamTagsByDomain(data.teamDomain),
@@ -95,7 +95,7 @@ const TeamTagsAsync = ({ onClose }: { onClose: () => void }) => {
           <Box>
             <Box>{teamInfo?.teamName}</Box>
             <Box color={'myGray.500'} fontSize={'xs'} fontWeight={'normal'}>
-              {'填写标签同步链接，点击同步按钮即可同步'}
+              {t('user:synchronization.title')}
             </Box>
           </Box>
         }
@@ -110,7 +110,7 @@ const TeamTagsAsync = ({ onClose }: { onClose: () => void }) => {
               ml={4}
               autoFocus
               bg={'myWhite.600'}
-              placeholder="请输入同步标签"
+              placeholder={t('user:synchronization.placeholder')}
               {...register('teamDomain', {
                 required: true
               })}
@@ -181,13 +181,13 @@ const TeamTagsAsync = ({ onClose }: { onClose: () => void }) => {
               leftIcon={<RepeatIcon />}
               onClick={handleSubmit((data) => onclickTagAsync(data))}
             >
-              立即同步
+              {t('user:synchronization.button')}
             </Button>
           </Flex>
         </ModalBody>
         <ModalFooter mb={2}>
           <Button variant={'whiteBase'} mr={3} onClick={onClose}>
-            {t('common:common.Close')}
+            {t('common:Close')}
           </Button>
           <Button isLoading={isUpdating} onClick={handleSubmit((data) => onclickUpdate(data))}>
             {t('common:user.team.Tags Async')}

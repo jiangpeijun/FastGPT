@@ -1,20 +1,22 @@
-import type { ApiRequestProps, ApiResponseType } from '@fastgpt/service/type/next';
 import { NextAPI } from '@/service/middleware/entry';
-import { MongoDataset } from '@fastgpt/service/core/dataset/schema';
 import { CommonErrEnum } from '@fastgpt/global/common/error/code/common';
-import { authUserPer } from '@fastgpt/service/support/permission/user/auth';
+import { FolderImgUrl } from '@fastgpt/global/common/file/image/constants';
+import { parseParentIdInMongo } from '@fastgpt/global/common/parentFolder/utils';
+import { DatasetTypeEnum } from '@fastgpt/global/core/dataset/constants';
 import {
+  OwnerPermissionVal,
   PerResourceTypeEnum,
   WritePermissionVal
 } from '@fastgpt/global/support/permission/constant';
-import { authDataset } from '@fastgpt/service/support/permission/dataset/auth';
+import { TeamDatasetCreatePermissionVal } from '@fastgpt/global/support/permission/user/constant';
 import { mongoSessionRun } from '@fastgpt/service/common/mongo/sessionRun';
-import { parseParentIdInMongo } from '@fastgpt/global/common/parentFolder/utils';
-import { FolderImgUrl } from '@fastgpt/global/common/file/image/constants';
-import { DatasetTypeEnum } from '@fastgpt/global/core/dataset/constants';
-import { DatasetDefaultPermissionVal } from '@fastgpt/global/support/permission/dataset/constant';
-import { getResourceAllClbs } from '@fastgpt/service/support/permission/controller';
+import { MongoDataset } from '@fastgpt/service/core/dataset/schema';
+import { getResourceClbsAndGroups } from '@fastgpt/service/support/permission/controller';
+import { authDataset } from '@fastgpt/service/support/permission/dataset/auth';
 import { syncCollaborators } from '@fastgpt/service/support/permission/inheritPermission';
+import { MongoResourcePermission } from '@fastgpt/service/support/permission/schema';
+import { authUserPer } from '@fastgpt/service/support/permission/user/auth';
+import type { ApiRequestProps, ApiResponseType } from '@fastgpt/service/type/next';
 export type DatasetFolderCreateQuery = {};
 export type DatasetFolderCreateBody = {
   parentId?: string;
@@ -32,41 +34,34 @@ async function handler(
     return Promise.reject(CommonErrEnum.missingParams);
   }
 
-  const { tmbId, teamId } = await authUserPer({
-    req,
-    per: WritePermissionVal,
-    authToken: true
-  });
-
-  const parentFolder = await (async () => {
-    if (parentId) {
-      return (
-        await authDataset({
-          datasetId: parentId,
-          per: WritePermissionVal,
-          req,
-          authToken: true
-        })
-      ).dataset;
-    }
-  })();
+  const { teamId, tmbId } = parentId
+    ? await authDataset({
+        req,
+        datasetId: parentId,
+        authToken: true,
+        authApiKey: true,
+        per: WritePermissionVal
+      })
+    : await authUserPer({
+        req,
+        authToken: true,
+        authApiKey: true,
+        per: TeamDatasetCreatePermissionVal
+      });
 
   await mongoSessionRun(async (session) => {
-    const app = await MongoDataset.create({
+    const dataset = await MongoDataset.create({
       ...parseParentIdInMongo(parentId),
       avatar: FolderImgUrl,
       name,
       intro,
       teamId,
       tmbId,
-      type: DatasetTypeEnum.folder,
-      defaultPermission: !!parentFolder
-        ? parentFolder.defaultPermission
-        : DatasetDefaultPermissionVal
+      type: DatasetTypeEnum.folder
     });
 
     if (parentId) {
-      const parentClbs = await getResourceAllClbs({
+      const parentClbsAndGroups = await getResourceClbsAndGroups({
         teamId,
         resourceId: parentId,
         resourceType: PerResourceTypeEnum.dataset,
@@ -76,10 +71,25 @@ async function handler(
       await syncCollaborators({
         resourceType: PerResourceTypeEnum.dataset,
         teamId,
-        resourceId: app._id,
-        collaborators: parentClbs,
+        resourceId: dataset._id,
+        collaborators: parentClbsAndGroups,
         session
       });
+    }
+
+    if (!parentId) {
+      await MongoResourcePermission.create(
+        [
+          {
+            resourceType: PerResourceTypeEnum.dataset,
+            teamId,
+            resourceId: dataset._id,
+            tmbId,
+            permission: OwnerPermissionVal
+          }
+        ],
+        { session, ordered: true }
+      );
     }
   });
 

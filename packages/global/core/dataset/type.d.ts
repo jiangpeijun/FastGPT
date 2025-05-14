@@ -1,16 +1,35 @@
-import { PermissionSchemaType } from '../../support/permission/type';
-import type { LLMModelItemType, VectorModelItemType } from '../../core/ai/model.d';
+import type { LLMModelItemType, EmbeddingModelItemType } from '../../core/ai/model.d';
 import { PermissionTypeEnum } from '../../support/permission/constant';
 import { PushDatasetDataChunkProps } from './api';
-import {
+import type {
+  DataChunkSplitModeEnum,
+  DatasetCollectionDataProcessModeEnum,
   DatasetCollectionTypeEnum,
   DatasetStatusEnum,
   DatasetTypeEnum,
   SearchScoreTypeEnum,
   TrainingModeEnum
 } from './constants';
-import { DatasetPermission } from '../../support/permission/dataset/controller';
+import type { DatasetPermission } from '../../support/permission/dataset/controller';
 import { Permission } from '../../support/permission/controller';
+import type { APIFileServer, FeishuServer, YuqueServer } from './apiDataset';
+import type { SourceMemberType } from 'support/user/type';
+import type { DatasetDataIndexTypeEnum } from './data/constants';
+import type { ChunkSettingModeEnum } from './constants';
+
+export type ChunkSettingsType = {
+  trainingType: DatasetCollectionDataProcessModeEnum;
+  autoIndexes?: boolean;
+  imageIndex?: boolean;
+
+  chunkSettingMode?: ChunkSettingModeEnum;
+  chunkSplitMode?: DataChunkSplitModeEnum;
+
+  chunkSize?: number;
+  indexSize?: number;
+  chunkSplitter?: string;
+  qaPrompt?: string;
+};
 
 export type DatasetSchemaType = {
   _id: string;
@@ -22,18 +41,30 @@ export type DatasetSchemaType = {
 
   avatar: string;
   name: string;
-  vectorModel: string;
-  agentModel: string;
   intro: string;
   type: `${DatasetTypeEnum}`;
-  status: `${DatasetStatusEnum}`;
+
+  vectorModel: string;
+  agentModel: string;
+  vlmModel?: string;
+
   websiteConfig?: {
     url: string;
     selector: string;
   };
+
+  chunkSettings?: ChunkSettingsType;
+
+  inheritPermission: boolean;
+  apiServer?: APIFileServer;
+  feishuServer?: FeishuServer;
+  yuqueServer?: YuqueServer;
+
+  // abandon
+  autoSync?: boolean;
   externalReadUrl?: string;
-} & PermissionSchemaType;
-// } & PermissionSchemaType;
+  defaultPermission?: number;
+};
 
 export type DatasetCollectionSchemaType = {
   _id: string;
@@ -43,34 +74,56 @@ export type DatasetCollectionSchemaType = {
   parentId?: string;
   name: string;
   type: DatasetCollectionTypeEnum;
-  createTime: Date;
-  updateTime: Date;
-  forbid?: boolean;
-
-  trainingType: TrainingModeEnum;
-  chunkSize: number;
-  chunkSplitter?: string;
-  qaPrompt?: string;
-
   tags?: string[];
 
+  createTime: Date;
+  updateTime: Date;
+
+  // Status
+  forbid?: boolean;
+  nextSyncTime?: Date;
+
+  // Collection metadata
   fileId?: string; // local file id
   rawLink?: string; // link url
   externalFileId?: string; //external file id
+  apiFileId?: string; // api file id
+  externalFileUrl?: string; // external import url
 
   rawTextLength?: number;
   hashRawText?: string;
-  externalFileUrl?: string; // external import url
   metadata?: {
     webPageSelector?: string;
     relatedImgId?: string; // The id of the associated image collections
 
     [key: string]: any;
   };
+
+  // Parse settings
+  customPdfParse?: boolean;
+  // Chunk settings
+  autoIndexes?: boolean;
+  imageIndex?: boolean;
+  trainingType: DatasetCollectionDataProcessModeEnum;
+
+  chunkSettingMode?: ChunkSettingModeEnum;
+  chunkSplitMode?: DataChunkSplitModeEnum;
+
+  chunkSize?: number;
+  indexSize?: number;
+  chunkSplitter?: string;
+  qaPrompt?: string;
+};
+
+export type DatasetCollectionTagsSchemaType = {
+  _id: string;
+  teamId: string;
+  datasetId: string;
+  tag: string;
 };
 
 export type DatasetDataIndexItemType = {
-  defaultIndex: boolean;
+  type: `${DatasetDataIndexTypeEnum}`;
   dataId: string; // pg data id
   text: string;
 };
@@ -81,16 +134,28 @@ export type DatasetDataSchemaType = {
   tmbId: string;
   datasetId: string;
   collectionId: string;
-  datasetId: string;
-  collectionId: string;
   chunkIndex: number;
   updateTime: Date;
   q: string; // large chunks or question
   a: string; // answer or custom content
+  history?: {
+    q: string;
+    a: string;
+    updateTime: Date;
+  }[];
   forbid?: boolean;
   fullTextToken: string;
   indexes: DatasetDataIndexItemType[];
   rebuilding?: boolean;
+};
+
+export type DatasetDataTextSchemaType = {
+  _id: string;
+  teamId: string;
+  datasetId: string;
+  collectionId: string;
+  dataId: string;
+  fullTextToken: string;
 };
 
 export type DatasetTrainingSchemaType = {
@@ -112,13 +177,12 @@ export type DatasetTrainingSchemaType = {
   chunkIndex: number;
   weight: number;
   indexes: Omit<DatasetDataIndexItemType, 'dataId'>[];
+  retryCount: number;
+  errorMsg?: string;
 };
 
-export type CollectionWithDatasetType = Omit<DatasetCollectionSchemaType, 'datasetId'> & {
-  datasetId: DatasetSchemaType;
-};
-export type DatasetDataWithCollectionType = Omit<DatasetDataSchemaType, 'collectionId'> & {
-  collectionId: DatasetCollectionSchemaType;
+export type CollectionWithDatasetType = DatasetCollectionSchemaType & {
+  dataset: DatasetSchemaType;
 };
 
 /* ================= dataset ===================== */
@@ -126,22 +190,41 @@ export type DatasetSimpleItemType = {
   _id: string;
   avatar: string;
   name: string;
-  vectorModel: VectorModelItemType;
+  vectorModel: EmbeddingModelItemType;
 };
 export type DatasetListItemType = {
   _id: string;
+  tmbId: string;
   avatar: string;
+  updateTime: Date;
   name: string;
   intro: string;
   type: `${DatasetTypeEnum}`;
   permission: DatasetPermission;
-  vectorModel: VectorModelItemType;
-} & PermissionSchemaType;
+  vectorModel: EmbeddingModelItemType;
+  inheritPermission: boolean;
+  private?: boolean;
+  sourceMember?: SourceMemberType;
+};
 
-export type DatasetItemType = Omit<DatasetSchemaType, 'vectorModel' | 'agentModel'> & {
-  vectorModel: VectorModelItemType;
+export type DatasetItemType = Omit<DatasetSchemaType, 'vectorModel' | 'agentModel' | 'vlmModel'> & {
+  status: `${DatasetStatusEnum}`;
+  errorMsg?: string;
+  vectorModel: EmbeddingModelItemType;
   agentModel: LLMModelItemType;
+  vlmModel?: LLMModelItemType;
   permission: DatasetPermission;
+};
+
+/* ================= tag ===================== */
+export type DatasetTagType = {
+  _id: string;
+  tag: string;
+};
+
+export type TagUsageType = {
+  tagId: string;
+  collections: string[];
 };
 
 /* ================= collection ===================== */
@@ -150,6 +233,8 @@ export type DatasetCollectionItemType = CollectionWithDatasetType & {
   sourceId?: string;
   file?: DatasetFileSchema;
   permission: DatasetPermission;
+  indexAmount: number;
+  errorCount?: number;
 };
 
 /* ================= data ===================== */
@@ -157,6 +242,7 @@ export type DatasetDataItemType = {
   id: string;
   teamId: string;
   datasetId: string;
+  updateTime: Date;
   collectionId: string;
   sourceName: string;
   sourceId?: string;
@@ -165,7 +251,7 @@ export type DatasetDataItemType = {
   chunkIndex: number;
   indexes: DatasetDataIndexItemType[];
   isOwner: boolean;
-  canWrite: boolean;
+  // permission: DatasetPermission;
 };
 
 /* --------------- file ---------------------- */
@@ -178,7 +264,8 @@ export type DatasetFileSchema = {
   contentType: string;
   metadata: {
     teamId: string;
-    tmbId: string;
+    tmbId?: string;
+    uid: string;
     encoding?: string;
   };
 };
@@ -186,7 +273,7 @@ export type DatasetFileSchema = {
 /* ============= search =============== */
 export type SearchDataResponseItemType = Omit<
   DatasetDataItemType,
-  'teamId' | 'indexes' | 'isOwner' | 'canWrite'
+  'teamId' | 'indexes' | 'isOwner'
 > & {
   score: { type: `${SearchScoreTypeEnum}`; value: number; index: number }[];
   // score: number;

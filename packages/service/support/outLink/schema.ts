@@ -1,6 +1,6 @@
-import { connectionMongo, getMongoModel, type Model } from '../../common/mongo';
-const { Schema, model, models } = connectionMongo;
-import { OutLinkSchema as SchemaType } from '@fastgpt/global/support/outLink/type';
+import { connectionMongo, getMongoModel } from '../../common/mongo';
+const { Schema } = connectionMongo;
+import { type OutLinkSchema as SchemaType } from '@fastgpt/global/support/outLink/type';
 import {
   TeamCollectionName,
   TeamMemberCollectionName
@@ -42,9 +42,20 @@ const OutLinkSchema = new Schema({
   lastTime: {
     type: Date
   },
+
   responseDetail: {
     type: Boolean,
     default: false
+  },
+  showNodeStatus: {
+    type: Boolean,
+    default: true
+  },
+  // showFullText: {
+  //   type: Boolean
+  // },
+  showRawSource: {
+    type: Boolean
   },
   limit: {
     maxUsagePoints: {
@@ -62,19 +73,10 @@ const OutLinkSchema = new Schema({
       type: String
     }
   },
+
+  // Third part app config
   app: {
-    appId: {
-      type: String
-    },
-    appSecret: {
-      type: String
-    },
-    encryptKey: {
-      type: String
-    },
-    verificationToken: {
-      type: String
-    }
+    type: Object // could be FeishuAppType | WecomAppType | ...
   },
   immediateResponse: {
     type: String
@@ -84,8 +86,16 @@ const OutLinkSchema = new Schema({
   }
 });
 
+OutLinkSchema.virtual('associatedApp', {
+  ref: AppCollectionName,
+  localField: 'appId',
+  foreignField: '_id',
+  justOne: true
+});
+
 try {
   OutLinkSchema.index({ shareId: -1 });
+  OutLinkSchema.index({ teamId: 1, tmbId: 1, appId: 1 });
 } catch (error) {
   console.log(error);
 }

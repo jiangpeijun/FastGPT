@@ -4,7 +4,7 @@ import { getErrText } from '@fastgpt/global/common/error/utils';
 import { addCustomFeedbacks } from '@fastgpt/service/core/chat/controller';
 import { authRequestFromLocal } from '@fastgpt/service/support/permission/auth/common';
 import { NodeOutputKeyEnum } from '@fastgpt/global/core/workflow/constants';
-import { SystemVariablesType } from '@fastgpt/global/core/workflow/runtime/type';
+import { type SystemVariablesType } from '@fastgpt/global/core/workflow/runtime/type';
 import { replaceVariable } from '@fastgpt/global/common/string/tools';
 
 type Props = HttpBodyType<
@@ -20,7 +20,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
       customFeedback,
       appId,
       chatId,
-      responseChatItemId: chatItemId,
+      responseChatItemId: dataId,
       customInputs
     } = req.body as Props;
 
@@ -37,12 +37,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
       addCustomFeedbacks({
         appId,
         chatId,
-        chatItemId,
+        dataId,
         feedbacks: [feedbackText]
       });
     }, 60000);
 
-    if (!chatId || !chatItemId) {
+    if (!chatId || !dataId) {
       return res.json({
         [NodeOutputKeyEnum.answerText]: `\\n\\n**自动反馈调试**: "${feedbackText}"\\n\\n`,
         text: feedbackText

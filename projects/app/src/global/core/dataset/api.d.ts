@@ -1,19 +1,24 @@
-import {
+import type {
   PushDatasetDataChunkProps,
   PushDatasetDataResponse
 } from '@fastgpt/global/core/dataset/api';
-import {
+import type {
+  APIFileServer,
+  FeishuServer,
+  YuqueServer
+} from '@fastgpt/global/core/dataset/apiDataset';
+import type {
   DatasetSearchModeEnum,
+  DatasetTypeEnum
+} from '@fastgpt/global/core/dataset/constants';
+import {
   DatasetSourceReadTypeEnum,
-  DatasetTypeEnum,
   ImportDataSourceEnum,
   TrainingModeEnum
 } from '@fastgpt/global/core/dataset/constants';
-import {
-  DatasetDataIndexItemType,
-  SearchDataResponseItemType
-} from '@fastgpt/global/core/dataset/type';
-import { NodeInputKeyEnum } from '@fastgpt/global/core/workflow/constants';
+import type { SearchDataResponseItemType } from '@fastgpt/global/core/dataset/type';
+import { DatasetDataIndexItemType } from '@fastgpt/global/core/dataset/type';
+import type { NodeInputKeyEnum } from '@fastgpt/global/core/workflow/constants';
 import { PermissionValueType } from '@fastgpt/global/support/permission/type';
 
 /* ================= dataset ===================== */
@@ -25,6 +30,10 @@ export type CreateDatasetParams = {
   avatar: string;
   vectorModel?: string;
   agentModel?: string;
+  vlmModel?: string;
+  apiServer?: APIFileServer;
+  feishuServer?: FeishuServer;
+  yuqueServer?: YuqueServer;
 };
 
 export type RebuildEmbeddingProps = {
@@ -43,26 +52,28 @@ export type InsertOneDatasetDataProps = PushDatasetDataChunkProps & {
   collectionId: string;
 };
 
-export type GetTrainingQueueProps = {
-  vectorModel: string;
-  agentModel: string;
-};
-export type GetTrainingQueueResponse = {
-  vectorTrainingCount: number;
-  agentTrainingCount: number;
-};
-
 /* -------------- search ---------------- */
 export type SearchTestProps = {
   datasetId: string;
   text: string;
   [NodeInputKeyEnum.datasetSimilarity]?: number;
   [NodeInputKeyEnum.datasetMaxTokens]?: number;
+
   [NodeInputKeyEnum.datasetSearchMode]?: `${DatasetSearchModeEnum}`;
+  [NodeInputKeyEnum.datasetSearchEmbeddingWeight]?: number;
+
   [NodeInputKeyEnum.datasetSearchUsingReRank]?: boolean;
+  [NodeInputKeyEnum.datasetSearchRerankModel]?: string;
+  [NodeInputKeyEnum.datasetSearchRerankWeight]?: number;
+
   [NodeInputKeyEnum.datasetSearchUsingExtensionQuery]?: boolean;
   [NodeInputKeyEnum.datasetSearchExtensionModel]?: string;
   [NodeInputKeyEnum.datasetSearchExtensionBg]?: string;
+
+  [NodeInputKeyEnum.datasetDeepSearch]?: boolean;
+  [NodeInputKeyEnum.datasetDeepSearchModel]?: string;
+  [NodeInputKeyEnum.datasetDeepSearchMaxTimes]?: number;
+  [NodeInputKeyEnum.datasetDeepSearchBg]?: string;
 };
 export type SearchTestResponse = {
   list: SearchDataResponseItemType[];

@@ -1,4 +1,4 @@
-import { UserType } from '@fastgpt/global/support/user/type';
+import { type UserType } from '@fastgpt/global/support/user/type';
 import { MongoUser } from './schema';
 import { getTmbInfoByTmbId, getUserDefaultTeam } from './team/controller';
 import { ERROR_ENUM } from '@fastgpt/global/common/error/errorCode';
@@ -41,10 +41,12 @@ export async function getUserDetail({
   return {
     _id: user._id,
     username: user.username,
-    avatar: user.avatar,
+    avatar: tmb.avatar,
     timezone: user.timezone,
     promotionRate: user.promotionRate,
-    openaiAccount: user.openaiAccount,
-    team: tmb
+    team: tmb,
+    notificationAccount: tmb.notificationAccount,
+    permission: tmb.permission,
+    contact: user.contact
   };
 }

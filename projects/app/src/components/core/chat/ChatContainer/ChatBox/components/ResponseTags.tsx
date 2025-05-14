@@ -1,115 +1,113 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { type ChatHistoryItemResType } from '@fastgpt/global/core/chat/type.d';
-import { DispatchNodeResponseType } from '@fastgpt/global/core/workflow/runtime/type.d';
-import { Flex, useDisclosure, Box, Collapse } from '@chakra-ui/react';
+import React, { useMemo, useState } from 'react';
+import { Flex, useDisclosure, Box } from '@chakra-ui/react';
 import { useTranslation } from 'next-i18next';
 import type { SearchDataResponseItemType } from '@fastgpt/global/core/dataset/type';
 import dynamic from 'next/dynamic';
 import MyTag from '@fastgpt/web/components/common/Tag/index';
 import MyTooltip from '@fastgpt/web/components/common/MyTooltip';
-import { FlowNodeTypeEnum } from '@fastgpt/global/core/workflow/node/constant';
 import { getSourceNameIcon } from '@fastgpt/global/core/dataset/utils';
 import ChatBoxDivider from '@/components/core/chat/Divider';
-import { strIsLink } from '@fastgpt/global/common/string/tools';
 import MyIcon from '@fastgpt/web/components/common/Icon';
 import { useSystem } from '@fastgpt/web/hooks/useSystem';
+import { type ChatSiteItemType } from '@fastgpt/global/core/chat/type';
+import { addStatisticalDataToHistoryItem } from '@/global/core/chat/utils';
 import { useSize } from 'ahooks';
+import { useContextSelector } from 'use-context-selector';
+import { ChatBoxContext } from '../Provider';
+import { eventBus, EventNameEnum } from '@/web/common/utils/eventbus';
 
-const QuoteModal = dynamic(() => import('./QuoteModal'));
 const ContextModal = dynamic(() => import('./ContextModal'));
 const WholeResponseModal = dynamic(() => import('../../../components/WholeResponseModal'));
 
-const isLLMNode = (item: ChatHistoryItemResType) =>
-  item.moduleType === FlowNodeTypeEnum.chatNode || item.moduleType === FlowNodeTypeEnum.tools;
-
 const ResponseTags = ({
-  flowResponses = [],
-  showDetail
+  showTags,
+  historyItem
 }: {
-  flowResponses?: ChatHistoryItemResType[];
-  showDetail: boolean;
+  showTags: boolean;
+  historyItem: ChatSiteItemType;
 }) => {
   const { isPc } = useSystem();
   const { t } = useTranslation();
   const quoteListRef = React.useRef<HTMLDivElement>(null);
-  const [quoteModalData, setQuoteModalData] = useState<{
-    rawSearch: SearchDataResponseItemType[];
-    metadata?: {
-      collectionId: string;
-      sourceId?: string;
-      sourceName: string;
-    };
-  }>();
+  const dataId = historyItem.dataId;
+
+  const chatTime = historyItem.time || new Date();
+  const durationSeconds = historyItem.durationSeconds || 0;
+  const {
+    totalQuoteList: quoteList = [],
+    llmModuleAccount = 0,
+    historyPreviewLength = 0
+  } = useMemo(() => addStatisticalDataToHistoryItem(historyItem), [historyItem]);
+
   const [quoteFolded, setQuoteFolded] = useState<boolean>(true);
-  const [contextModalData, setContextModalData] =
-    useState<DispatchNodeResponseType['historyPreview']>();
+
+  const chatType = useContextSelector(ChatBoxContext, (v) => v.chatType);
+
+  const notSharePage = useMemo(() => chatType !== 'share', [chatType]);
+
   const {
     isOpen: isOpenWholeModal,
     onOpen: onOpenWholeModal,
     onClose: onCloseWholeModal
   } = useDisclosure();
+  const {
+    isOpen: isOpenContextModal,
+    onOpen: onOpenContextModal,
+    onClose: onCloseContextModal
+  } = useDisclosure();
 
-  const quoteListSize = useSize(quoteListRef);
+  useSize(quoteListRef);
   const quoteIsOverflow = quoteListRef.current
     ? quoteListRef.current.scrollHeight > (isPc ? 50 : 55)
     : true;
 
-  const {
-    llmModuleAccount,
-    quoteList = [],
-    sourceList = [],
-    historyPreview = [],
-    runningTime = 0
-  } = useMemo(() => {
-    const flatResponse = flowResponses
-      .map((item) => {
-        if (item.pluginDetail || item.toolDetail) {
-          return [item, ...(item.pluginDetail || []), ...(item.toolDetail || [])];
-        }
-        return item;
-      })
-      .flat();
-
-    const chatData = flatResponse.find(isLLMNode);
-    const quoteList = flatResponse
-      .filter((item) => item.moduleType === FlowNodeTypeEnum.datasetSearchNode)
-      .map((item) => item.quoteList)
-      .flat()
-      .filter(Boolean) as SearchDataResponseItemType[];
-
-    const sourceList = quoteList.reduce(
-      (acc: Record<string, SearchDataResponseItemType[]>, cur) => {
+  const sourceList = useMemo(() => {
+    return Object.values(
+      quoteList.reduce((acc: Record<string, SearchDataResponseItemType[]>, cur) => {
         if (!acc[cur.collectionId]) {
           acc[cur.collectionId] = [cur];
         }
         return acc;
-      },
-      {}
-    );
-    return {
-      llmModuleAccount: flatResponse.filter(isLLMNode).length,
-      quoteList,
-      sourceList: Object.values(sourceList)
-        .flat()
-        .map((item) => ({
-          sourceName: item.sourceName,
-          sourceId: item.sourceId,
-          icon: getSourceNameIcon({ sourceId: item.sourceId, sourceName: item.sourceName }),
-          canReadQuote: showDetail || strIsLink(item.sourceId),
-          collectionId: item.collectionId
-        })),
-      historyPreview: chatData?.historyPreview,
-      runningTime: +flowResponses.reduce((sum, item) => sum + (item.runningTime || 0), 0).toFixed(2)
-    };
-  }, [showDetail, flowResponses]);
+      }, {})
+    )
+      .flat()
+      .map((item) => ({
+        sourceName: item.sourceName,
+        sourceId: item.sourceId,
+        icon: getSourceNameIcon({ sourceId: item.sourceId, sourceName: item.sourceName }),
+        collectionId: item.collectionId,
+        datasetId: item.datasetId
+      }));
+  }, [quoteList]);
 
-  return flowResponses.length === 0 ? null : (
+  const openQuoteReader = (item?: {
+    collectionId?: string;
+    sourceId?: string;
+    sourceName?: string;
+    datasetId?: string;
+  }) => {
+    eventBus.emit(EventNameEnum.openQuoteReader, item);
+  };
+
+  const notEmptyTags =
+    quoteList.length > 0 ||
+    (llmModuleAccount === 1 && notSharePage) ||
+    (llmModuleAccount > 1 && notSharePage) ||
+    (isPc && durationSeconds > 0) ||
+    notSharePage;
+
+  return !showTags ? null : (
     <>
+      {/* quote */}
       {sourceList.length > 0 && (
         <>
           <Flex justifyContent={'space-between'} alignItems={'center'}>
             <Box width={'100%'}>
-              <ChatBoxDivider icon="core/chat/quoteFill" text={t('common:core.chat.Quote')} />{' '}
+              <ChatBoxDivider
+                icon="core/chat/quoteFill"
+                text={t('common:core.chat.Quote')}
+                iconColor="#E82F72"
+              />
             </Box>
             {quoteFolded && quoteIsOverflow && (
               <MyIcon
@@ -145,15 +143,13 @@ const ResponseTags = ({
                 : {}
             }
           >
-            {sourceList.map((item) => {
+            {sourceList.map((item, index) => {
               return (
                 <MyTooltip key={item.collectionId} label={t('common:core.chat.quote.Read Quote')}>
                   <Flex
                     alignItems={'center'}
                     fontSize={'xs'}
                     border={'sm'}
-                    py={1.5}
-                    px={2}
                     borderRadius={'sm'}
                     _hover={{
                       '.controller': {
@@ -165,20 +161,32 @@ const ResponseTags = ({
                     cursor={'pointer'}
                     onClick={(e) => {
                       e.stopPropagation();
-                      setQuoteModalData({
-                        rawSearch: quoteList,
-                        metadata: {
-                          collectionId: item.collectionId,
-                          sourceId: item.sourceId,
-                          sourceName: item.sourceName
-                        }
-                      });
+                      openQuoteReader(item);
                     }}
+                    height={6}
                   >
-                    <MyIcon name={item.icon as any} mr={1} flexShrink={0} w={'12px'} />
-                    <Box className="textEllipsis3" wordBreak={'break-all'} flex={'1 0 0'}>
-                      {item.sourceName}
-                    </Box>
+                    <Flex
+                      color={'myGray.500'}
+                      bg={'myGray.150'}
+                      w={4}
+                      justifyContent={'center'}
+                      fontSize={'10px'}
+                      h={'full'}
+                      alignItems={'center'}
+                    >
+                      {index + 1}
+                    </Flex>
+                    <Flex px={1.5}>
+                      <MyIcon name={item.icon as any} mr={1} flexShrink={0} w={'12px'} />
+                      <Box
+                        className="textEllipsis3"
+                        wordBreak={'break-all'}
+                        flex={'1 0 0'}
+                        fontSize={'mini'}
+                      >
+                        {item.sourceName}
+                      </Box>
+                    </Flex>
                   </Flex>
                 </MyTooltip>
               );
@@ -197,77 +205,71 @@ const ResponseTags = ({
           </Flex>
         </>
       )}
-      {showDetail && (
+
+      {notEmptyTags && (
         <Flex alignItems={'center'} mt={3} flexWrap={'wrap'} gap={2}>
           {quoteList.length > 0 && (
-            <MyTooltip label="查看引用">
+            <MyTooltip label={t('chat:view_citations')}>
               <MyTag
                 colorSchema="blue"
                 type="borderSolid"
                 cursor={'pointer'}
-                onClick={() => setQuoteModalData({ rawSearch: quoteList })}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openQuoteReader();
+                }}
               >
-                {quoteList.length}条引用
+                {t('chat:citations', { num: quoteList.length })}
               </MyTag>
             </MyTooltip>
           )}
-          {llmModuleAccount === 1 && (
+          {llmModuleAccount === 1 && notSharePage && (
             <>
-              {historyPreview.length > 0 && (
-                <MyTooltip label={'点击查看上下文预览'}>
+              {historyPreviewLength > 0 && (
+                <MyTooltip label={t('chat:click_contextual_preview')}>
                   <MyTag
                     colorSchema="green"
                     cursor={'pointer'}
                     type="borderSolid"
-                    onClick={() => setContextModalData(historyPreview)}
+                    onClick={onOpenContextModal}
                   >
-                    {historyPreview.length}条上下文
+                    {t('chat:contextual', { num: historyPreviewLength })}
                   </MyTag>
                 </MyTooltip>
               )}
             </>
           )}
-          {llmModuleAccount > 1 && (
+          {llmModuleAccount > 1 && notSharePage && (
             <MyTag type="borderSolid" colorSchema="blue">
-              多组 AI 对话
+              {t('chat:multiple_AI_conversations')}
             </MyTag>
           )}
-
-          {isPc && runningTime > 0 && (
-            <MyTooltip label={'模块运行时间和'}>
+          {isPc && durationSeconds > 0 && (
+            <MyTooltip label={t('chat:module_runtime_and')}>
               <MyTag colorSchema="purple" type="borderSolid" cursor={'default'}>
-                {runningTime}s
+                {durationSeconds.toFixed(2)}s
               </MyTag>
             </MyTooltip>
           )}
-          <MyTooltip label={t('common:core.chat.response.Read complete response tips')}>
-            <MyTag
-              colorSchema="gray"
-              type="borderSolid"
-              cursor={'pointer'}
-              onClick={onOpenWholeModal}
-            >
-              {t('common:core.chat.response.Read complete response')}
-            </MyTag>
-          </MyTooltip>
+
+          {notSharePage && (
+            <MyTooltip label={t('common:core.chat.response.Read complete response tips')}>
+              <MyTag
+                colorSchema="gray"
+                type="borderSolid"
+                cursor={'pointer'}
+                onClick={onOpenWholeModal}
+              >
+                {t('common:core.chat.response.Read complete response')}
+              </MyTag>
+            </MyTooltip>
+          )}
         </Flex>
       )}
-      {!!quoteModalData && (
-        <QuoteModal
-          {...quoteModalData}
-          showDetail={showDetail}
-          onClose={() => setQuoteModalData(undefined)}
-        />
-      )}
-      {!!contextModalData && (
-        <ContextModal context={contextModalData} onClose={() => setContextModalData(undefined)} />
-      )}
+
+      {isOpenContextModal && <ContextModal dataId={dataId} onClose={onCloseContextModal} />}
       {isOpenWholeModal && (
-        <WholeResponseModal
-          response={flowResponses}
-          showDetail={showDetail}
-          onClose={onCloseWholeModal}
-        />
+        <WholeResponseModal dataId={dataId} chatTime={chatTime} onClose={onCloseWholeModal} />
       )}
     </>
   );

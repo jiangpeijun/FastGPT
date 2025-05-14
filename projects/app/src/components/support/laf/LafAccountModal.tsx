@@ -73,7 +73,7 @@ const LafAccountModal = ({
       onError: (err) => {
         onResetForm();
         toast({
-          title: getErrText(err, '获取应用列表失败'),
+          title: getErrText(err, t('common:get_app_failed')),
           status: 'error'
         });
       }
@@ -91,23 +91,23 @@ const LafAccountModal = ({
       initUserInfo();
       onClose();
     },
-    successToast: t('common:common.Update Success'),
-    errorToast: t('common:common.Update Failed')
+    successToast: t('common:update_success'),
+    errorToast: t('common:update_failed')
   });
 
   return (
-    <MyModal isOpen iconSrc="/imgs/workflow/laf.png" title={t('common:user.Laf Account Setting')}>
+    <MyModal isOpen iconSrc="support/account/laf" title={t('common:user.Laf Account Setting')}>
       <ModalBody>
         <Box fontSize={'sm'} color={'myGray.500'}>
           <Box>{t('common:support.user.Laf account intro')}</Box>
           <Box textDecoration={'underline'}>
-            <Link href={getDocPath('/docs/workflow/modules/laf/')} isExternal>
+            <Link href={getDocPath('/docs/guide/dashboard/workflow/laf/')} isExternal>
               {t('common:support.user.Laf account course')}
             </Link>
           </Box>
           <Box>
             <Link textDecoration={'underline'} href={`${feConfigs.lafEnv}/`} isExternal>
-              {t('support.user.Go laf env', {
+              {t('common:support.user.Go laf env', {
                 env: feConfigs.lafEnv?.split('//')[1]
               })}
             </Link>
@@ -132,7 +132,7 @@ const LafAccountModal = ({
                 }}
                 isLoading={isPatLoading}
               >
-                验证
+                {t('common:verification')}
               </Button>
             </>
           ) : (
@@ -145,7 +145,7 @@ const LafAccountModal = ({
                 });
               }}
             >
-              已验证，点击取消绑定
+              {t('common:has_verification')}
             </Button>
           )}
         </Flex>
@@ -164,7 +164,7 @@ const LafAccountModal = ({
               }
               placeholder={t('common:plugin.App')}
               value={watch('appid')}
-              onchange={(e) => {
+              onChange={(e) => {
                 setValue('appid', e);
               }}
               {...(register('appid'), { required: true })}
@@ -180,11 +180,11 @@ const LafAccountModal = ({
             onClose();
           }}
         >
-          {t('common:common.Close')}
+          {t('common:Close')}
         </Button>
         {appid && (
           <Button ml={3} isLoading={isUpdating} onClick={handleSubmit((data) => onSubmit(data))}>
-            {t('common:common.Update')}
+            {t('common:Update')}
           </Button>
         )}
       </ModalFooter>

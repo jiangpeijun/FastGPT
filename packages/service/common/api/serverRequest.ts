@@ -1,5 +1,5 @@
 import { SERVICE_LOCAL_HOST } from '../system/tools';
-import axios, { Method, InternalAxiosRequestConfig, AxiosResponse } from 'axios';
+import axios, { type Method, type InternalAxiosRequestConfig, type AxiosResponse } from 'axios';
 
 interface ConfigType {
   headers?: { [key: string]: string };
@@ -83,8 +83,8 @@ export function request(url: string, data: any, config: ConfigType, method: Meth
       baseURL: serverRequestBaseUrl,
       url,
       method,
-      data: ['POST', 'PUT'].includes(method) ? data : null,
-      params: !['POST', 'PUT'].includes(method) ? data : null,
+      data: ['POST', 'PUT'].includes(method) ? data : undefined,
+      params: !['POST', 'PUT'].includes(method) ? data : undefined,
       ...config // custom config
     })
     .then((res) => checkRes(res.data))

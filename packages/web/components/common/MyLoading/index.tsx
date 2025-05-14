@@ -1,5 +1,5 @@
 import React from 'react';
-import { Spinner, Flex, Box, SpinnerProps } from '@chakra-ui/react';
+import { Spinner, Flex, Box, type SpinnerProps } from '@chakra-ui/react';
 
 const Loading = ({
   fixed = true,
@@ -44,4 +44,4 @@ const Loading = ({
   );
 };
 
-export default Loading;
+export default React.memo(Loading);

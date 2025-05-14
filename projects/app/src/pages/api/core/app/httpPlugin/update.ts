@@ -1,16 +1,17 @@
 import type { NextApiResponse } from 'next';
 import { mongoSessionRun } from '@fastgpt/service/common/mongo/sessionRun';
-import { ClientSession } from '@fastgpt/service/common/mongo';
+import { type ClientSession } from '@fastgpt/service/common/mongo';
 import { httpApiSchema2Plugins } from '@fastgpt/global/core/app/httpPlugin/utils';
 import { NextAPI } from '@/service/middleware/entry';
-import { AppSchema } from '@fastgpt/global/core/app/type';
-import { ApiRequestProps } from '@fastgpt/service/type/next';
+import { type AppSchema } from '@fastgpt/global/core/app/type';
+import { type ApiRequestProps } from '@fastgpt/service/type/next';
 import { authApp } from '@fastgpt/service/support/permission/app/auth';
 import { ManagePermissionVal } from '@fastgpt/global/support/permission/constant';
 import { MongoApp } from '@fastgpt/service/core/app/schema';
 import { isEqual } from 'lodash';
 import { onCreateApp } from '../create';
 import { onDelOneApp } from '../del';
+import { refreshSourceAvatar } from '@fastgpt/service/common/file/image/controller';
 
 export type UpdateHttpPluginBody = {
   appId: string;
@@ -49,13 +50,15 @@ async function handler(req: ApiRequestProps<UpdateHttpPluginBody>, res: NextApiR
     await MongoApp.findByIdAndUpdate(
       appId,
       {
-        name,
-        avatar,
-        intro,
+        ...(name && { name }),
+        ...(avatar && { avatar }),
+        ...(intro !== undefined && { intro }),
         pluginData
       },
       { session }
     );
+
+    await refreshSourceAvatar(avatar, app.avatar, session);
   });
 }
 

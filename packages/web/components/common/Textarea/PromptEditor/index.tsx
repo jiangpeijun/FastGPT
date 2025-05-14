@@ -4,71 +4,77 @@ import { editorStateToText } from './utils';
 import Editor from './Editor';
 import MyModal from '../../MyModal';
 import { useTranslation } from 'next-i18next';
-import { EditorState, type LexicalEditor } from 'lexical';
-import { EditorVariableLabelPickerType, EditorVariablePickerType } from './type.d';
+import type { EditorState, LexicalEditor } from 'lexical';
+import { type EditorVariableLabelPickerType, type EditorVariablePickerType } from './type.d';
 import { useCallback } from 'react';
 
 const PromptEditor = ({
   showOpenModal = true,
-  showResize = true,
   variables = [],
   variableLabels = [],
   value,
   onChange,
   onBlur,
-  h,
+  minH,
+  maxH,
   maxLength,
   placeholder,
   title,
-  isFlow
+  bg = 'white'
 }: {
   showOpenModal?: boolean;
-  showResize?: boolean;
   variables?: EditorVariablePickerType[];
   variableLabels?: EditorVariableLabelPickerType[];
   value?: string;
   onChange?: (text: string) => void;
   onBlur?: (text: string) => void;
-  h?: number;
+  minH?: number;
+  maxH?: number;
   maxLength?: number;
   placeholder?: string;
   title?: string;
-  isFlow?: boolean;
+  bg?: string;
 }) => {
   const { isOpen, onOpen, onClose } = useDisclosure();
   const { t } = useTranslation();
 
-  const onChangeInput = useCallback((editorState: EditorState, editor: LexicalEditor) => {
-    const text = editorStateToText(editor).replaceAll('}}{{', '}} {{');
-    onChange?.(text);
-  }, []);
-  const onBlurInput = useCallback((editor: LexicalEditor) => {
-    const text = editorStateToText(editor).replaceAll('}}{{', '}} {{');
-    onBlur?.(text);
-  }, []);
+  const onChangeInput = useCallback(
+    (editorState: EditorState, editor: LexicalEditor) => {
+      const text = editorStateToText(editor);
+      onChange?.(text);
+    },
+    [onChange]
+  );
+  const onBlurInput = useCallback(
+    (editor: LexicalEditor) => {
+      const text = editorStateToText(editor);
+      onBlur?.(text);
+    },
+    [onBlur]
+  );
 
   return (
     <>
       <Editor
-        showResize={showResize}
         showOpenModal={showOpenModal}
         onOpenModal={onOpen}
         variables={variables}
         variableLabels={variableLabels}
-        h={h}
+        minH={minH}
+        maxH={maxH}
         maxLength={maxLength}
         value={value}
         onChange={onChangeInput}
         onBlur={onBlurInput}
         placeholder={placeholder}
-        isFlow={isFlow}
+        bg={bg}
       />
       <MyModal isOpen={isOpen} onClose={onClose} iconSrc="modal/edit" title={title} w={'full'}>
         <ModalBody>
           <Editor
-            h={400}
+            minH={400}
+            maxH={400}
             maxLength={maxLength}
-            showResize
             showOpenModal={false}
             variables={variables}
             variableLabels={variableLabels}
@@ -80,7 +86,7 @@ const PromptEditor = ({
         </ModalBody>
         <ModalFooter>
           <Button mr={2} onClick={onClose} px={6}>
-            {t('common:common.Confirm')}
+            {t('common:Confirm')}
           </Button>
         </ModalFooter>
       </MyModal>

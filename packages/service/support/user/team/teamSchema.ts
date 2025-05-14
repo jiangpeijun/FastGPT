@@ -1,9 +1,8 @@
-import { connectionMongo, getMongoModel, type Model } from '../../../common/mongo';
-const { Schema, model, models } = connectionMongo;
-import { TeamSchema as TeamType } from '@fastgpt/global/support/user/team/type.d';
+import { connectionMongo, getMongoModel } from '../../../common/mongo';
+const { Schema } = connectionMongo;
+import { type TeamSchema as TeamType } from '@fastgpt/global/support/user/team/type.d';
 import { userCollectionName } from '../../user/schema';
 import { TeamCollectionName } from '@fastgpt/global/support/user/team/constant';
-import { TeamDefaultPermissionVal } from '@fastgpt/global/support/permission/user/constant';
 
 const TeamSchema = new Schema({
   name: {
@@ -14,10 +13,6 @@ const TeamSchema = new Schema({
     type: Schema.Types.ObjectId,
     ref: userCollectionName
   },
-  defaultPermission: {
-    type: Number,
-    default: TeamDefaultPermissionVal
-  },
   avatar: {
     type: String,
     default: '/icon/logo.svg'
@@ -26,10 +21,7 @@ const TeamSchema = new Schema({
     type: Date,
     default: () => Date.now()
   },
-  balance: {
-    type: Number,
-    default: 0
-  },
+  balance: Number,
   teamDomain: {
     type: String
   },
@@ -51,6 +43,20 @@ const TeamSchema = new Schema({
     pat: {
       type: String
     }
+  },
+  openaiAccount: {
+    type: {
+      key: String,
+      baseUrl: String
+    }
+  },
+  externalWorkflowVariables: {
+    type: Object,
+    default: {}
+  },
+  notificationAccount: {
+    type: String,
+    required: false
   }
 });
 

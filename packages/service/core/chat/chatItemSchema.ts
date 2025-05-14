@@ -1,6 +1,6 @@
 import { connectionMongo, getMongoModel, type Model } from '../../common/mongo';
 const { Schema, model, models } = connectionMongo;
-import { ChatItemSchema as ChatItemType } from '@fastgpt/global/core/chat/type';
+import { type ChatItemSchema as ChatItemType } from '@fastgpt/global/core/chat/type';
 import { ChatRoleMap } from '@fastgpt/global/core/chat/constants';
 import { getNanoid } from '@fastgpt/global/common/string/tools';
 import {
@@ -46,6 +46,10 @@ const ChatItemSchema = new Schema({
     type: Date,
     default: () => new Date()
   },
+  hideInUI: {
+    type: Boolean,
+    default: false
+  },
   obj: {
     // chat role
     type: String,
@@ -78,22 +82,24 @@ const ChatItemSchema = new Schema({
   [DispatchNodeResponseKeyEnum.nodeResponse]: {
     type: Array,
     default: []
-  }
+  },
+  durationSeconds: Number
 });
 
 try {
-  ChatItemSchema.index({ dataId: 1 }, { background: true });
+  ChatItemSchema.index({ dataId: 1 });
   /* delete by app; 
      delete by chat id;
      get chat list; 
      get chat logs; 
      close custom feedback; 
   */
-  ChatItemSchema.index({ appId: 1, chatId: 1, dataId: 1 }, { background: true });
-  // admin charts
-  ChatItemSchema.index({ time: -1, obj: 1 }, { background: true });
+  ChatItemSchema.index({ appId: 1, chatId: 1, dataId: 1 });
   // timer, clear history
-  ChatItemSchema.index({ teamId: 1, time: -1 }, { background: true });
+  ChatItemSchema.index({ teamId: 1, time: -1 });
+
+  // Admin charts
+  ChatItemSchema.index({ obj: 1, time: -1 }, { partialFilterExpression: { obj: 'Human' } });
 } catch (error) {
   console.log(error);
 }

@@ -1,27 +1,42 @@
-import fs from 'fs';
+import type fs from 'fs';
 import { getAxiosConfig } from '../config';
 import axios from 'axios';
 import FormData from 'form-data';
+import { type STTModelType } from '@fastgpt/global/core/ai/model.d';
 
 export const aiTranscriptions = async ({
-  model,
-  fileStream
+  model: modelData,
+  fileStream,
+  headers
 }: {
-  model: string;
+  model: STTModelType;
   fileStream: fs.ReadStream;
+  headers?: Record<string, string>;
 }) => {
+  if (!modelData) {
+    return Promise.reject('no model');
+  }
+
   const data = new FormData();
-  data.append('model', model);
+  data.append('model', modelData.model);
   data.append('file', fileStream);
 
   const aiAxiosConfig = getAxiosConfig();
-  const { data: result } = await axios<{ text: string }>({
+
+  const { data: result } = await axios<{ text: string; usage?: { total_tokens: number } }>({
     method: 'post',
-    baseURL: aiAxiosConfig.baseUrl,
-    url: '/audio/transcriptions',
+    ...(modelData.requestUrl
+      ? { url: modelData.requestUrl }
+      : {
+          baseURL: aiAxiosConfig.baseUrl,
+          url: '/audio/transcriptions'
+        }),
     headers: {
-      Authorization: aiAxiosConfig.authorization,
-      ...data.getHeaders()
+      Authorization: modelData.requestAuth
+        ? `Bearer ${modelData.requestAuth}`
+        : aiAxiosConfig.authorization,
+      ...data.getHeaders(),
+      ...headers
     },
     data: data
   });

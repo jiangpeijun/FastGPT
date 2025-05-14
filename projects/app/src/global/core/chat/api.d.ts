@@ -1,9 +1,13 @@
 import type { AppChatConfigType, AppTTSConfigType } from '@fastgpt/global/core/app/type.d';
-import { AdminFbkType, ChatItemType } from '@fastgpt/global/core/chat/type';
+import type { AdminFbkType } from '@fastgpt/global/core/chat/type';
+import { ChatItemType } from '@fastgpt/global/core/chat/type';
 import type { OutLinkChatAuthProps } from '@fastgpt/global/support/permission/chat.d';
-import { AppTypeEnum } from '@fastgpt/global/core/app/constants';
-
-export type GetChatSpeechProps = {
+import type { AppTypeEnum } from '@fastgpt/global/core/app/constants';
+import { RequestPaging } from '@/types';
+import type { GetChatTypeEnum } from '@/global/core/chat/constants';
+import type { ChatSourceEnum } from '@fastgpt/global/core/chat/constants';
+export type GetChatSpeechProps = OutLinkChatAuthProps & {
+  appId: string;
   ttsConfig: AppTTSConfigType;
   input: string;
   shareId?: string;
@@ -15,6 +19,14 @@ export type InitChatProps = {
   chatId?: string;
   loadCustomFeedbacks?: boolean;
 };
+
+export type GetChatRecordsProps = OutLinkChatAuthProps & {
+  appId: string;
+  chatId?: string;
+  loadCustomFeedbacks?: boolean;
+  type: `${GetChatTypeEnum}`;
+};
+
 export type InitOutLinkChatProps = {
   chatId?: string;
   shareId: string;
@@ -30,9 +42,8 @@ export type InitChatResponse = {
   chatId?: string;
   appId: string;
   userAvatar?: string;
-  title: string;
-  variables: Record<string, any>;
-  history: ChatItemType[];
+  title?: string;
+  variables?: Record<string, any>;
   app: {
     chatConfig?: AppChatConfigType;
     chatModels?: string[];
@@ -48,6 +59,7 @@ export type InitChatResponse = {
 /* ---------- history ----------- */
 export type GetHistoriesProps = OutLinkChatAuthProps & {
   appId?: string;
+  source?: `${ChatSourceEnum}`;
 };
 
 export type UpdateHistoryProps = OutLinkChatAuthProps & {
@@ -63,7 +75,7 @@ export type DelHistoryProps = OutLinkChatAuthProps & {
   chatId: string;
 };
 export type ClearHistoriesProps = OutLinkChatAuthProps & {
-  appId?: string;
+  appId: string;
 };
 
 /* -------- chat item ---------- */
@@ -76,12 +88,12 @@ export type DeleteChatItemProps = OutLinkChatAuthProps & {
 export type AdminUpdateFeedbackParams = AdminFbkType & {
   appId: string;
   chatId: string;
-  chatItemId: string;
+  dataId: string;
 };
 
 export type CloseCustomFeedbackParams = {
   appId: string;
   chatId: string;
-  chatItemId: string;
+  dataId: string;
   index: number;
 };

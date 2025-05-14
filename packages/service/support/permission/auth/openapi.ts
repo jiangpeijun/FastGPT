@@ -1,5 +1,5 @@
-import { AuthModeType, AuthResponseType } from '../type';
-import { OpenApiSchema } from '@fastgpt/global/support/openapi/type';
+import { type AuthModeType, type AuthResponseType } from '../type';
+import { type OpenApiSchema } from '@fastgpt/global/support/openapi/type';
 import { parseHeaderCert } from '../controller';
 import { getTmbInfoByTmbId } from '../../user/team/controller';
 import { MongoOpenApi } from '../../openapi/schema';
@@ -26,6 +26,10 @@ export async function authOpenApiKeyCrud({
     const openapi = await MongoOpenApi.findOne({ _id: id, teamId });
     if (!openapi) {
       return Promise.reject(OpenApiErrEnum.unExist);
+    }
+
+    if (String(openapi.teamId) !== teamId) {
+      return Promise.reject(OpenApiErrEnum.unAuth);
     }
 
     if (!!openapi.appId) {

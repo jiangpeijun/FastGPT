@@ -1,5 +1,4 @@
 import { Box, Button, Flex, HStack } from '@chakra-ui/react';
-import { useToast } from '@fastgpt/web/hooks/useToast';
 import React from 'react';
 import MyIcon from '@fastgpt/web/components/common/Icon';
 import { FolderIcon } from '@fastgpt/global/common/file/image/constants';
@@ -7,14 +6,12 @@ import FormLabel from '@fastgpt/web/components/common/MyBox/FormLabel';
 import MyDivider from '@fastgpt/web/components/common/MyDivider';
 import { useTranslation } from 'next-i18next';
 import { useConfirm } from '@fastgpt/web/hooks/useConfirm';
-import { PermissionValueType } from '@fastgpt/global/support/permission/type';
-import DefaultPermissionList from '@/components/support/permission/DefaultPerList';
+import { type PermissionValueType } from '@fastgpt/global/support/permission/type';
 import CollaboratorContextProvider, {
-  MemberManagerInputPropsType
+  type MemberManagerInputPropsType
 } from '../../support/permission/MemberManager/context';
 import MyTooltip from '@fastgpt/web/components/common/MyTooltip';
 import { useSystemStore } from '@/web/common/system/useSystemStore';
-import { useI18n } from '@/web/context/I18n';
 import ResumeInherit from '@/components/support/permission/ResumeInheritText';
 
 const FolderSlideCard = ({
@@ -26,7 +23,6 @@ const FolderSlideCard = ({
   deleteTip,
   onDelete,
 
-  defaultPer,
   managePer,
   isInheritPermission,
   resumeInheritPermission,
@@ -41,11 +37,6 @@ const FolderSlideCard = ({
   deleteTip: string;
   onDelete: () => void;
 
-  defaultPer: {
-    value: PermissionValueType;
-    defaultValue: PermissionValueType;
-    onChange: (v: PermissionValueType) => Promise<any>;
-  };
   managePer: MemberManagerInputPropsType;
 
   isInheritPermission?: boolean;
@@ -55,8 +46,6 @@ const FolderSlideCard = ({
 }) => {
   const { t } = useTranslation();
   const { feConfigs } = useSystemStore();
-  const { commonT } = useI18n();
-  const { toast } = useToast();
 
   const { ConfirmModal, openConfirm } = useConfirm({
     type: 'delete',
@@ -78,7 +67,7 @@ const FolderSlideCard = ({
           />
         </HStack>
         <Box mt={3} fontSize={'sm'} color={'myGray.500'} cursor={'pointer'} onClick={onEdit}>
-          {intro || '暂无介绍'}
+          {intro || t('common:not_yet_introduced')}
         </Box>
       </Box>
 
@@ -87,7 +76,7 @@ const FolderSlideCard = ({
           <MyDivider my={6} />
 
           <Box>
-            <FormLabel>{t('common:common.Operation')}</FormLabel>
+            <FormLabel>{t('common:Operation')}</FormLabel>
 
             <Button
               variant={'transparentBase'}
@@ -101,7 +90,7 @@ const FolderSlideCard = ({
               mt={4}
               onClick={onMove}
             >
-              {t('common:common.Move')}
+              {t('common:Move')}
             </Button>
             {managePer.permission.isOwner && (
               <Button
@@ -118,7 +107,7 @@ const FolderSlideCard = ({
                   openConfirm(onDelete)();
                 }}
               >
-                {t('common:common.Delete folder')}
+                {t('common:delete_folder')}
               </Button>
             )}
           </Box>
@@ -130,27 +119,9 @@ const FolderSlideCard = ({
           <MyDivider my={6} />
 
           <Box>
-            <FormLabel>{t('common:support.permission.Permission')}</FormLabel>
-
             {!isInheritPermission && (
               <Box mt={2}>
                 <ResumeInherit onResume={() => resumeInheritPermission?.().then(refetchResource)} />
-              </Box>
-            )}
-
-            {managePer.permission.hasManagePer && (
-              <Box mt={5}>
-                <Box fontSize={'sm'} color={'myGray.500'}>
-                  {t('common:permission.Default permission')}
-                </Box>
-                <DefaultPermissionList
-                  mt="1"
-                  per={defaultPer.value}
-                  defaultPer={defaultPer.defaultValue}
-                  isInheritPermission={isInheritPermission}
-                  onChange={(v) => defaultPer.onChange(v)}
-                  hasParent={hasParent}
-                />
               </Box>
             )}
             <Box mt={6}>
@@ -179,7 +150,7 @@ const FolderSlideCard = ({
                                 onClick={onOpenManageModal}
                               />
                             </MyTooltip>
-                            <MyTooltip label={t('common:common.Add')}>
+                            <MyTooltip label={t('common:Add')}>
                               <MyIcon
                                 w="1rem"
                                 name="support/permission/collaborator"
@@ -194,8 +165,8 @@ const FolderSlideCard = ({
                       <MemberListCard
                         mt={2}
                         tagStyle={{
-                          type: 'borderSolid',
-                          colorSchema: 'gray'
+                          type: 'fill',
+                          colorSchema: 'white'
                         }}
                       />
                     </>

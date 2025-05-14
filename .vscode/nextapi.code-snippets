@@ -50,5 +50,19 @@
 			"export default ContextProvider"
 		],
 		"description": "FastGPT usecontext template"
+	},
+
+	"Vitest test case template": {
+		"scope": "typescript",
+		"prefix": "template_test",
+		"body": [
+			"import { describe, it, expect } from 'vitest';",
+			"",
+			"describe('authType2UsageSource', () => {",
+			"  it('Test description', () => {",
+			"    expect().toBe();",
+			"  });",
+			"});"
+		]
 	}
 }

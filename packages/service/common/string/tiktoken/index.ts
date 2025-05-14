@@ -1,13 +1,13 @@
 import {
-  ChatCompletionContentPart,
-  ChatCompletionCreateParams,
-  ChatCompletionMessageParam,
-  ChatCompletionTool
+  type ChatCompletionContentPart,
+  type ChatCompletionCreateParams,
+  type ChatCompletionMessageParam,
+  type ChatCompletionTool
 } from '@fastgpt/global/core/ai/type';
 import { chats2GPTMessages } from '@fastgpt/global/core/chat/adapt';
-import { ChatItemType } from '@fastgpt/global/core/chat/type';
+import { type ChatItemType } from '@fastgpt/global/core/chat/type';
 import { WorkerNameEnum, getWorkerController } from '../../../worker/utils';
-import { ChatCompletionRequestMessageRoleEnum } from '@fastgpt/global/core/ai/constants';
+import type { ChatCompletionRequestMessageRoleEnum } from '@fastgpt/global/core/ai/constants';
 import { addLog } from '../../system/log';
 
 export const countGptMessagesTokens = async (
@@ -25,7 +25,7 @@ export const countGptMessagesTokens = async (
       number
     >({
       name: WorkerNameEnum.countGptMessagesTokens,
-      maxReservedThreads: global.systemEnv?.tokenWorkers || 20
+      maxReservedThreads: global.systemEnv?.tokenWorkers || 30
     });
 
     const total = await workerController.run({ messages, tools, functionCall });

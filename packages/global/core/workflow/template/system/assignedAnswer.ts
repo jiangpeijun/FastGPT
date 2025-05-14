@@ -1,11 +1,12 @@
 import { FlowNodeInputTypeEnum, FlowNodeTypeEnum } from '../../node/constant';
-import { FlowNodeTemplateType } from '../../type/node.d';
+import { type FlowNodeTemplateType } from '../../type/node.d';
 import {
   WorkflowIOValueTypeEnum,
   NodeInputKeyEnum,
   FlowNodeTemplateTypeEnum
 } from '../../constants';
 import { getHandleConfig } from '../utils';
+import { i18nT } from '../../../../../web/i18n/utils';
 
 export const AssignedAnswerModule: FlowNodeTemplateType = {
   id: FlowNodeTypeEnum.answerNode,
@@ -14,10 +15,9 @@ export const AssignedAnswerModule: FlowNodeTemplateType = {
   sourceHandle: getHandleConfig(true, true, true, true),
   targetHandle: getHandleConfig(true, true, true, true),
   avatar: 'core/workflow/template/reply',
-  name: '指定回复',
-  intro:
-    '该模块可以直接回复一段指定的内容。常用于引导、提示。非字符串内容传入时，会转成字符串进行输出。',
-  version: '481',
+  name: i18nT('workflow:assigned_reply'),
+  intro: i18nT('workflow:intro_assigned_reply'),
+  courseUrl: '/docs/guide/dashboard/workflow/reply/',
   isTool: true,
   inputs: [
     {
@@ -25,9 +25,9 @@ export const AssignedAnswerModule: FlowNodeTemplateType = {
       renderTypeList: [FlowNodeInputTypeEnum.textarea, FlowNodeInputTypeEnum.reference],
       valueType: WorkflowIOValueTypeEnum.any,
       required: true,
-      label: 'core.module.input.label.Response content',
-      description: 'core.module.input.description.Response content',
-      placeholder: 'core.module.input.description.Response content'
+      label: i18nT('common:core.module.input.label.Response content'),
+      description: i18nT('common:core.module.input.description.Response content'),
+      placeholder: i18nT('common:core.module.input.description.Response content')
     }
   ],
   outputs: []

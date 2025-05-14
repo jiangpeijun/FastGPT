@@ -2,10 +2,10 @@
 import { Tiktoken } from 'tiktoken/lite';
 import cl100k_base from './cl100k_base.json';
 import {
-  ChatCompletionMessageParam,
-  ChatCompletionContentPart,
-  ChatCompletionCreateParams,
-  ChatCompletionTool
+  type ChatCompletionMessageParam,
+  type ChatCompletionContentPart,
+  type ChatCompletionCreateParams,
+  type ChatCompletionTool
 } from '@fastgpt/global/core/ai/type';
 import { ChatCompletionRequestMessageRoleEnum } from '@fastgpt/global/core/ai/constants';
 import { parentPort } from 'worker_threads';
@@ -72,7 +72,7 @@ parentPort?.on(
       };
 
       const total =
-        messages.reduce((sum, item) => {
+        messages.reduce((sum, item, index) => {
           // Evaluates the text of toolcall and functioncall
           const functionCallPrompt = (() => {
             let prompt = '';
@@ -100,7 +100,13 @@ parentPort?.on(
               .join('');
           })();
 
-          return sum + countPromptTokens(`${contentPrompt}${functionCallPrompt}`, item.role);
+          // Only the last message computed reasoning_text
+          const reasoningText = index === messages.length - 1 ? item.reasoning_text || '' : '';
+
+          return (
+            sum +
+            countPromptTokens(`${reasoningText}${contentPrompt}${functionCallPrompt}`, item.role)
+          );
         }, 0) +
         countToolsTokens(tools) +
         countToolsTokens(functionCall);

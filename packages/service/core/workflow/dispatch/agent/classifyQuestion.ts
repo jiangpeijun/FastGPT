@@ -1,21 +1,29 @@
 import { chats2GPTMessages } from '@fastgpt/global/core/chat/adapt';
-import { countMessagesTokens } from '../../../../common/string/tiktoken/index';
+import {
+  countGptMessagesTokens,
+  countPromptTokens
+} from '../../../../common/string/tiktoken/index';
 import type { ChatItemType } from '@fastgpt/global/core/chat/type.d';
 import { ChatItemValueTypeEnum, ChatRoleEnum } from '@fastgpt/global/core/chat/constants';
-import { getAIApi } from '../../../ai/config';
+import { createChatCompletion } from '../../../ai/config';
 import type { ClassifyQuestionAgentItemType } from '@fastgpt/global/core/workflow/template/system/classifyQuestion/type';
-import { NodeInputKeyEnum, NodeOutputKeyEnum } from '@fastgpt/global/core/workflow/constants';
+import type { NodeInputKeyEnum } from '@fastgpt/global/core/workflow/constants';
+import { NodeOutputKeyEnum } from '@fastgpt/global/core/workflow/constants';
 import { DispatchNodeResponseKeyEnum } from '@fastgpt/global/core/workflow/runtime/constants';
 import type { ModuleDispatchProps } from '@fastgpt/global/core/workflow/runtime/type';
-import { replaceVariable } from '@fastgpt/global/common/string/tools';
-import { Prompt_CQJson } from '@fastgpt/global/core/ai/prompt/agent';
-import { LLMModelItemType } from '@fastgpt/global/core/ai/model.d';
-import { ModelTypeEnum, getLLMModel } from '../../../ai/model';
+import { getCQPrompt } from '@fastgpt/global/core/ai/prompt/agent';
+import { type LLMModelItemType } from '@fastgpt/global/core/ai/model.d';
+import { getLLMModel } from '../../../ai/model';
 import { getHistories } from '../utils';
 import { formatModelChars2Points } from '../../../../support/wallet/usage/utils';
-import { DispatchNodeResultType } from '@fastgpt/global/core/workflow/runtime/type';
+import { type DispatchNodeResultType } from '@fastgpt/global/core/workflow/runtime/type';
 import { chatValue2RuntimePrompt } from '@fastgpt/global/core/chat/adapt';
 import { getHandleId } from '@fastgpt/global/core/workflow/utils';
+import { loadRequestMessages } from '../../../chat/utils';
+import { llmCompletionsBodyFormat, formatLLMResponse } from '../../../ai/utils';
+import { addLog } from '../../../../common/system/log';
+import { ModelTypeEnum } from '../../../../../global/core/ai/model';
+import { replaceVariable } from '@fastgpt/global/common/string/tools';
 
 type Props = ModuleDispatchProps<{
   [NodeInputKeyEnum.aiModel]: string;
@@ -32,7 +40,7 @@ type ActionProps = Props & { cqModel: LLMModelItemType };
 /* request openai chat */
 export const dispatchClassifyQuestion = async (props: Props): Promise<CQResponse> => {
   const {
-    user,
+    externalProvider,
     node: { nodeId, name },
     histories,
     params: { model, history = 6, agents, userChatInput }
@@ -46,7 +54,7 @@ export const dispatchClassifyQuestion = async (props: Props): Promise<CQResponse
 
   const chatHistories = getHistories(history, histories);
 
-  const { arg, tokens } = await completions({
+  const { arg, inputTokens, outputTokens } = await completions({
     ...props,
     histories: chatHistories,
     cqModel
@@ -56,20 +64,22 @@ export const dispatchClassifyQuestion = async (props: Props): Promise<CQResponse
 
   const { totalPoints, modelName } = formatModelChars2Points({
     model: cqModel.model,
-    tokens,
+    inputTokens: inputTokens,
+    outputTokens: outputTokens,
     modelType: ModelTypeEnum.llm
   });
 
   return {
     [NodeOutputKeyEnum.cqResult]: result.value,
     [DispatchNodeResponseKeyEnum.skipHandleId]: agents
-      .filter((item) => item.key !== arg?.type)
+      .filter((item) => item.key !== result.key)
       .map((item) => getHandleId(nodeId, 'source', item.key)),
     [DispatchNodeResponseKeyEnum.nodeResponse]: {
-      totalPoints: user.openaiAccount?.key ? 0 : totalPoints,
+      totalPoints: externalProvider.openaiAccount?.key ? 0 : totalPoints,
       model: modelName,
       query: userChatInput,
-      tokens,
+      inputTokens: inputTokens,
+      outputTokens: outputTokens,
       cqList: agents,
       cqResult: result.value,
       contextTotalLen: chatHistories.length + 2
@@ -77,9 +87,10 @@ export const dispatchClassifyQuestion = async (props: Props): Promise<CQResponse
     [DispatchNodeResponseKeyEnum.nodeDispatchUsages]: [
       {
         moduleName: name,
-        totalPoints: user.openaiAccount?.key ? 0 : totalPoints,
+        totalPoints: externalProvider.openaiAccount?.key ? 0 : totalPoints,
         model: modelName,
-        tokens
+        inputTokens: inputTokens,
+        outputTokens: outputTokens
       }
     ]
   };
@@ -87,9 +98,10 @@ export const dispatchClassifyQuestion = async (props: Props): Promise<CQResponse
 
 const completions = async ({
   cqModel,
-  user,
+  externalProvider,
   histories,
-  params: { agents, systemPrompt = '', userChatInput }
+  params: { agents, systemPrompt = '', userChatInput },
+  node: { version }
 }: ActionProps) => {
   const messages: ChatItemType[] = [
     {
@@ -98,14 +110,14 @@ const completions = async ({
         {
           type: ChatItemValueTypeEnum.text,
           text: {
-            content: replaceVariable(cqModel.customCQPrompt || Prompt_CQJson, {
+            content: replaceVariable(cqModel.customCQPrompt || getCQPrompt(version), {
               systemPrompt: systemPrompt || 'null',
               typeList: agents
                 .map((item) => `{"类型ID":"${item.key}", "问题类型":"${item.value}"}`)
-                .join('------'),
+                .join('\n------\n'),
               history: histories
                 .map((item) => `${item.obj}:${chatValue2RuntimePrompt(item.value).text}`)
-                .join('------'),
+                .join('\n------\n'),
               question: userChatInput
             })
           }
@@ -113,19 +125,24 @@ const completions = async ({
       ]
     }
   ];
-
-  const ai = getAIApi({
-    userKey: user.openaiAccount,
-    timeout: 480000
-  });
-
-  const data = await ai.chat.completions.create({
-    model: cqModel.model,
-    temperature: 0.01,
+  const requestMessages = await loadRequestMessages({
     messages: chats2GPTMessages({ messages, reserveId: false }),
-    stream: false
+    useVision: false
   });
-  const answer = data.choices?.[0].message?.content || '';
+
+  const { response } = await createChatCompletion({
+    body: llmCompletionsBodyFormat(
+      {
+        model: cqModel.model,
+        temperature: 0.01,
+        messages: requestMessages,
+        stream: true
+      },
+      cqModel
+    ),
+    userKey: externalProvider.openaiAccount
+  });
+  const { text: answer, usage } = await formatLLMResponse(response);
 
   // console.log(JSON.stringify(chats2GPTMessages({ messages, reserveId: false }), null, 2));
   // console.log(answer, '----');
@@ -135,8 +152,13 @@ const completions = async ({
     agents.find((item) => answer.includes(item.value))?.key ||
     '';
 
+  if (!id) {
+    addLog.warn('Classify error', { answer });
+  }
+
   return {
-    tokens: await countMessagesTokens(messages),
+    inputTokens: usage?.prompt_tokens || (await countGptMessagesTokens(requestMessages)),
+    outputTokens: usage?.completion_tokens || (await countPromptTokens(answer)),
     arg: { type: id }
   };
 };

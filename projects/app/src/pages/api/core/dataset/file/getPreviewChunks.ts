@@ -1,65 +1,142 @@
+import type {
+  ChunkSettingModeEnum,
+  DataChunkSplitModeEnum,
+  DatasetCollectionDataProcessModeEnum
+} from '@fastgpt/global/core/dataset/constants';
 import { DatasetSourceReadTypeEnum } from '@fastgpt/global/core/dataset/constants';
 import { rawText2Chunks, readDatasetSourceRawText } from '@fastgpt/service/core/dataset/read';
-import { authCert } from '@fastgpt/service/support/permission/auth/common';
 import { NextAPI } from '@/service/middleware/entry';
-import { ApiRequestProps } from '@fastgpt/service/type/next';
-import { OwnerPermissionVal, ReadPermissionVal } from '@fastgpt/global/support/permission/constant';
-import { authFile } from '@fastgpt/service/support/permission/auth/file';
+import { type ApiRequestProps } from '@fastgpt/service/type/next';
+import {
+  OwnerPermissionVal,
+  WritePermissionVal
+} from '@fastgpt/global/support/permission/constant';
+import { authCollectionFile } from '@fastgpt/service/support/permission/auth/file';
+import { authDataset } from '@fastgpt/service/support/permission/dataset/auth';
+import {
+  computeChunkSize,
+  computeChunkSplitter,
+  getLLMMaxChunkSize
+} from '@fastgpt/global/core/dataset/training/utils';
+import { CommonErrEnum } from '@fastgpt/global/common/error/code/common';
+import { getLLMModel } from '@fastgpt/service/core/ai/model';
 
 export type PostPreviewFilesChunksProps = {
+  datasetId: string;
   type: DatasetSourceReadTypeEnum;
   sourceId: string;
+
+  customPdfParse?: boolean;
+
+  trainingType: DatasetCollectionDataProcessModeEnum;
+
+  // Chunk settings
+  chunkSettingMode: ChunkSettingModeEnum;
+  chunkSplitMode: DataChunkSplitModeEnum;
   chunkSize: number;
+  chunkSplitter?: string;
   overlapRatio: number;
-  customSplitChar?: string;
+
+  // Read params
   selector?: string;
   isQAImport?: boolean;
+  externalFileId?: string;
 };
 export type PreviewChunksResponse = {
-  q: string;
-  a: string;
-}[];
+  chunks: {
+    q: string;
+    a: string;
+  }[];
+  total: number;
+};
 
 async function handler(
   req: ApiRequestProps<PostPreviewFilesChunksProps>
 ): Promise<PreviewChunksResponse> {
-  const { type, sourceId, chunkSize, customSplitChar, overlapRatio, selector, isQAImport } =
-    req.body;
+  let {
+    type,
+    sourceId,
+    customPdfParse = false,
+
+    trainingType,
+    chunkSettingMode,
+    chunkSplitMode,
+    chunkSize,
+    chunkSplitter,
+
+    overlapRatio,
+    selector,
+    isQAImport,
+    datasetId,
+    externalFileId
+  } = req.body;
 
   if (!sourceId) {
     throw new Error('sourceId is empty');
   }
-  if (chunkSize > 30000) {
-    throw new Error('chunkSize is too large, should be less than 30000');
-  }
 
-  const { teamId } = await (async () => {
-    if (type === DatasetSourceReadTypeEnum.fileLocal) {
-      return authFile({
-        req,
-        authToken: true,
-        authApiKey: true,
-        fileId: sourceId,
-        per: OwnerPermissionVal
-      });
-    }
-    return authCert({ req, authApiKey: true, authToken: true });
-  })();
+  const fileAuthRes =
+    type === DatasetSourceReadTypeEnum.fileLocal
+      ? await authCollectionFile({
+          req,
+          authToken: true,
+          authApiKey: true,
+          fileId: sourceId,
+          per: OwnerPermissionVal
+        })
+      : undefined;
 
-  const rawText = await readDatasetSourceRawText({
-    teamId,
-    type,
-    sourceId: sourceId,
-    selector,
-    isQAImport
+  const { dataset, teamId, tmbId } = await authDataset({
+    req,
+    authApiKey: true,
+    authToken: true,
+    datasetId,
+    per: WritePermissionVal
   });
 
-  return rawText2Chunks({
+  if (fileAuthRes && String(fileAuthRes.tmbId) !== String(tmbId) && !fileAuthRes.isRoot) {
+    return Promise.reject(CommonErrEnum.unAuthFile);
+  }
+
+  chunkSize = computeChunkSize({
+    trainingType,
+    chunkSettingMode,
+    chunkSplitMode,
+    chunkSize,
+    llmModel: getLLMModel(dataset.agentModel)
+  });
+
+  chunkSplitter = computeChunkSplitter({
+    chunkSettingMode,
+    chunkSplitMode,
+    chunkSplitter
+  });
+
+  const { rawText } = await readDatasetSourceRawText({
+    teamId,
+    tmbId,
+    type,
+    sourceId,
+    selector,
+    isQAImport,
+    apiServer: dataset.apiServer,
+    feishuServer: dataset.feishuServer,
+    yuqueServer: dataset.yuqueServer,
+    externalFileId,
+    customPdfParse
+  });
+
+  const chunks = rawText2Chunks({
     rawText,
-    chunkLen: chunkSize,
+    chunkSize,
+    maxSize: getLLMMaxChunkSize(getLLMModel(dataset.agentModel)),
     overlapRatio,
-    customReg: customSplitChar ? [customSplitChar] : [],
+    customReg: chunkSplitter ? [chunkSplitter] : [],
     isQAImport: isQAImport
-  }).slice(0, 5);
+  });
+  return {
+    chunks: chunks.slice(0, 10),
+    total: chunks.length
+  };
 }
 export default NextAPI(handler);
